@@ -51,11 +51,27 @@ Vorschläge machen und prüfst sie dort nach).
 >   Bindestriche), "title", "description" (1–3 Sätze), "curricula"
 >   (Lehrplan-Zuordnungen, siehe unten), "learningObjectives" (Liste
 >   von «Ich kann …»-Sätzen), "blocks" (Liste der Inhaltsblöcke).
+> - Die "id" ist ein DAUERHAFTER technischer Schlüssel (Lernstände und
+>   Reports hängen daran, eine spätere Umbenennung ist praktisch nicht
+>   möglich): KEINE lehrplanabhängigen Angaben wie Stufe, Klasse oder
+>   Zyklus hineinschreiben ("englisch-01-…", nie "englisch-stufe7-01-…")
+>   – die Stufe steht je Lehrplan in "curricula" und kann sich ändern.
 > - Die "description" beschreibt NUR den Inhalt («Worum geht es?») –
 >   KEINE Modulnummern, Schulwochen, Schulstufen oder Zug-Angaben
 >   (die liegen strukturiert in den Metadaten und können je Lehrplan
 >   verschieden sein). Bei Zielsprache Englisch ("language": "en")
 >   ist auch die "description" auf Englisch verfasst.
+> - QUERVERWEISE auf andere Module NIE als Nummer oder Titel schreiben
+>   («siehe Modul 7» bricht bei anderer Lehrplan-Nummerierung), sondern
+>   als [[modul:<slug>]] mit dem Ordner-Slug des Zielmoduls – die
+>   Plattform zeigt dafür den aktuellen Modultitel in der jeweiligen
+>   Sprache, verlinkt (bzw. als reinen Titel, wenn das Ziel im
+>   gewählten Lehrplan fehlt). Nur in didaktischem Fliesstext (body,
+>   intro, Aufgaben-/Quiz-Texte, learningObjectives, beschreibung);
+>   NIE in Titeln, "description" oder Antwort-Material. Den Satz so
+>   bauen, dass ein eingesetzter Titel passt: gut «Mehr dazu in
+>   [[modul:…]].», falsch «in Modul [[modul:…]]». Verweise auf
+>   Module, die es nicht gibt, lehnt die Validierung ab.
 > - "curricula": Liste der Lehrplan-Zuordnungen – Fach, Stufe und
 >   Kompetenzen leben NUR hier. Ein Eintrag je Lehrplan, z. B.
 >   [{"curriculum": "li", "subject": "RZG", "subjectName": "Räume,
@@ -87,9 +103,15 @@ Vorschläge machen und prüfst sie dort nach).
 >      "transcript":"kurze Textzusammenfassung des Videos"}
 >      (nur YouTube oder Vimeo – fremde Videoquellen werden abgelehnt;
 >      ein eigenes Video im Modulordner geht mit
->      {"type":"video","provider":"url","url":"/content/<id>/film.mp4"})
+>      {"type":"video","provider":"url","url":"/content/<id>/film.mp4"}).
+>      Optional zusätzlich "transkriptSegmente": zeitgestempelte
+>      Untertitel [{"start":0,"text":"Erster gesprochener Satz."},
+>      {"start":3.5,"text":"Nächster Satz."}] – "start" in Sekunden,
+>      streng aufsteigend; der Player blendet den Text der aktuellen
+>      Abspielposition unter dem Video ein und Sprachfassungen
+>      übersetzen ihn automatisch. Nicht bei provider "vimeo".
 >   3. {"type":"image","src":"/content/<id>/bild.jpg","alt":"Pflicht:
->      Bildbeschreibung","caption":"…","credit":"Quelle & Lizenz"}
+>      Bildbeschreibung","caption":"…","credit":"Pflicht: Quelle & Lizenz"}
 >   4. {"type":"tasks","title":"Aufgaben","tasks":[{"prompt":"…",
 >      "hint":"…","solution":"…"}]}
 >   5. {"type":"lueckentext","id":"lt1","modus":"wortbank","title":"…",
@@ -212,6 +234,55 @@ Vorschläge machen und prüfst sie dort nach).
 >      Start aus erreichbar sein. Optional macht eine "abschlussfrage"
 >      (eine einzelne Quizfrage mit eigener id, gleiche Form wie im
 >      Quiz) den Block zu einem automatisch ausgewerteten Block.
+>   13. {"type":"diagramm","id":"schema1","title":"…",
+>      "definition":"flowchart TD\n  A[\"Erster Schritt\"] -->
+>      B[\"Zweiter Schritt\"]",
+>      "beschreibung":"Pflicht: Was sagt das Schaubild aus? (Text für
+>      Screenreader und Vorlesen, Ersatz bei Renderfehlern)"}
+>      – Schaubild als Mermaid-DATEN statt Bild. WICHTIG: Schaubilder,
+>      deren Inhalt aus Text und Struktur besteht (Kreisläufe,
+>      Ablaufdiagramme, Zeitleisten, Mindmaps, Pro/Contra-Übersichten),
+>      IMMER als diagramm-Block statt als gerendertes Bild – nur so
+>      skaliert der Text scharf und wird in Sprachfassungen übersetzt.
+>      Erlaubte Typen (erste Zeile): flowchart, graph, timeline,
+>      mindmap. Beschriftungen bei flowchart/graph/mindmap IMMER in
+>      doppelten Anführungszeichen (A["Text"], -->|"Kante"|,
+>      wurzel(("…")); mindmap-Knoten brauchen immer eine Form wie
+>      a["…"]); bei timeline KEINE Anführungszeichen und kein
+>      Doppelpunkt im Text (Trennzeichen). Jeder flowchart-Knoten
+>      braucht einmal eine Beschriftung, danach reicht die id
+>      (A --> B). Kein HTML/<br/>, keine click/style-Anweisungen –
+>      lehnt die Validierung ab. Fotos und Illustrationen bleiben
+>      image-Blöcke.
+>   14. {"type":"schaubild","id":"bild1","title":"…",
+>      "szene": <kompletter Excalidraw-Export als JSON>,
+>      "beschreibung":"Pflicht: Was zeigt das Schaubild? (Text für
+>      Screenreader und Vorlesen, Ersatz bei Renderfehlern)",
+>      "credit":"optional: Quelle & Lizenz – Pflicht bei abgeleiteten
+>      Werken (nachgezeichnete fremde Vorlage), wie beim image-Block"}
+>      – GESTALTETES Schaubild im Handzeichnungs-Stil, wenn der
+>      diagramm-Block nicht reicht (Kurven, Mengendiagramme, freie
+>      Layouts, nachgebaute Oberflächen): Auf excalidraw.com zeichnen
+>      (nur Formen, Pfeile, Linien, Freihand und Text in der
+>      Normal-Schrift «Normal» (STANDARD; die Handschrift «Hand-drawn»
+>      nur für bewusst skizzenhafte Akzente). KONTRAST ist Pflicht:
+>      jedes Text-Hintergrund-Paar mindestens 4,5:1 (helle Schrift auf
+>      dunkler Füllung, dunkle auf heller – die Validierung prüft
+>      beide Anzeige-Modi und lehnt Verstösse ab).
+>      Beschriftungen als GEBUNDENE Labels =
+>      Text direkt auf der Form tippen, bei schrägen Formen wie
+>      Pyramiden-Stufen als freie, zentrierte Texte mit fester
+>      Breite), dann Menü → Export → «Save to
+>      disk» und den Inhalt der .excalidraw-Datei als "szene"
+>      einfügen; danach npm run schaubild-verschlanken -- <modul-id>
+>      laufen lassen (schreibt die kanonische, schlanke Szene in die
+>      Datei – die Validierung verlangt sie). WICHTIG: Kästen
+>      GROSSZÜGIG anlegen, damit Übersetzungen Platz haben – längere
+>      Texte lassen Kästen wachsen, Pfeile und Nachbarn rücken aber
+>      nicht zur Seite. Keine Bilder, Links oder Einbettungen (werden
+>      abgelehnt). Schaubilder mit Text NIE als gerendertes Bild
+>      einchecken – Bilder bleiben Fotos und Illustrationen ohne
+>      wesentlichen Text vorbehalten.
 > - Quizze sind normale Blöcke in "blocks": {"type":"quiz","id":"quiz1",
 >   "title":"…","questions":[…]} – beliebig oft und an beliebiger
 >   Position (z. B. ein kurzes Quiz nach jedem Kapitel oder eines am
@@ -428,4 +499,4 @@ Pfad liefert die Plattform die Bilder aus)*.
 | «Simulation: … nicht erreichbar» oder «verweist auf unbekannten Knoten» | Jede `weiter`-Angabe muss auf eine existierende Knoten-`id` zeigen, und jeder Knoten muss vom `start` aus erreichbar sein — Fehlermeldung der KI geben: «Korrigiere die Verzweigungen». |
 | Blocktyp `planspiel` wird abgelehnt | Dieser Typ steht nur dem EveryCate-Kernteam offen (eingebetteter Code braucht eine Sicherheitsprüfung). Nutze Lückentext, Quiz oder Simulation. |
 | Umlaute sehen kaputt aus | Datei muss UTF-8 sein — beim Kopieren aus dem Chat normalerweise automatisch der Fall. |
-| «ß» im Text | Schweizer Schreibweise: durch «ss» ersetzen (lassen). |
+| «ß» im Text | Kein Fehler: ß STEHEN LASSEN. Module werden in deutscher Rechtschreibung mit ß verfasst; die Plattform zeigt bei Schweizer/Liechtensteiner Lehrplan automatisch ss an (Abschnitt «Orthografie»). |

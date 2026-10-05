@@ -1,14 +1,18 @@
 import { z } from "zod";
 
 /**
- * EveryCate Content-Schema (Version 2) – maschinenlesbare Referenz.
+ * EveryCate Content-Schema (Version 3) – maschinenlesbare Referenz.
  *
  * ⚠️ SYNCHRON HALTEN: Diese Datei ist eine Kopie von
  * `src/lib/content/schema.ts` aus dem Plattform-Repository (everycate).
  * Format-Änderungen müssen in BEIDEN Dateien landen – zuerst in der
  * Plattform (dort erzwingt der Build das Schema), dann hier. Ab dem
- * SYNC-BEGINN-Marker müssen beide Dateien byteidentisch sein; die CI
- * schlägt sonst fehl.
+ * SYNC-BEGINN-Marker müssen beide Dateien byteidentisch sein. Geprüft
+ * wird das in der CI des PLATTFORM-Repos («Schema-Drift prüfen» in
+ * dessen validate.yml vergleicht seine Kopie bei jedem Push/PR gegen
+ * den main-Stand DIESES Repos); die CI hier kann das nicht – das
+ * Plattform-Repo ist privat und dieses Repo hält bewusst keinen
+ * Zugriffs-Token darauf.
  *
  * Erweiterbarkeit: Unbekannte Blocktypen (z. B. künftige "chat"-Blöcke)
  * sind gültig, werden aber im Player mit einem Platzhalter gerendert. So
@@ -650,8 +654,53 @@ export const videoBlockSchema = z
      * oder gesperrt ist.
      */
     transcript: markdown.optional(),
+    /**
+     * Zeitgestempelte Transkript-Segmente (NEU seit 21.9.2026,
+     * optional): je Segment die Startzeit in Sekunden ab Videobeginn
+     * und der gesprochene Text. Der Player zeigt sie synchron zur
+     * Abspielposition als ein-/ausschaltbare Untertitel unter dem
+     * Video; die Übersetzungs-Ableitung übersetzt NUR die Texte, die
+     * Startzeiten sind invariant (uebersetzung/felder.ts im
+     * Content-Repo). Ergänzt das Fliesstext-`transcript`, ersetzt es
+     * nicht. Bei provider "vimeo" nicht erlaubt – der Player kann dort
+     * die Abspielposition nicht lesen, die Segmente wären tote Daten.
+     * ROLLOUT: Plattform VOR dem Content-Merge deployen – ältere
+     * Player lehnen Module mit dem Feld hart ab (strictObject).
+     */
+    transkriptSegmente: z
+      .array(
+        z.strictObject({
+          /** Startzeit in Sekunden ab Videobeginn (Dezimalwerte erlaubt). */
+          start: z.number().nonnegative(),
+          /** Gesprochener Text des Segments (reiner Text, kein Markdown). */
+          text: z.string().trim().min(1).max(500),
+        }),
+      )
+      .min(1)
+      .max(400)
+      .optional(),
   })
   .superRefine((v, ctx) => {
+    if (v.transkriptSegmente) {
+      if (v.provider === "vimeo") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["transkriptSegmente"],
+          message:
+            'Video-Block: "transkriptSegmente" ist bei provider "vimeo" nicht unterstützt – der Player kann die Vimeo-Abspielposition nicht lesen (dokumentierte Grenze). Fliesstext-"transcript" bleibt möglich.',
+        });
+      }
+      for (let i = 1; i < v.transkriptSegmente.length; i++) {
+        if (v.transkriptSegmente[i].start <= v.transkriptSegmente[i - 1].start) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["transkriptSegmente", i, "start"],
+            message:
+              "Video-Block: Die Startzeiten der Transkript-Segmente müssen streng aufsteigend sein.",
+          });
+        }
+      }
+    }
     if (v.provider === "url") {
       if (!v.url) {
         ctx.addIssue({
@@ -2682,6 +2731,1884 @@ export const termBlockSchema = z
     });
   });
 
+// --- Diagramm (Mermaid-Schaubild als Daten) ---------------------------------
+
+/**
+ * Erlaubte Mermaid-Diagrammtypen (erste nicht-leere Zeile der
+ * Definition entscheidet). Bewusst klein gehalten: Flussdiagramme und
+ * Strukturbilder (flowchart/graph), Zeitleisten (timeline) und
+ * Mindmaps (mindmap) decken die Text-Schaubilder der Module ab. Jeder
+ * weitere Typ braucht eine eigene, EMPIRISCH geprüfte Beschriftungs-
+ * Konvention (s. extrahiereDiagrammLabels) und einen bewussten
+ * Entscheid – Chrome-Befund 21.9.2026: flowchart/graph/mindmap
+ * rendern gequotete Beschriftungen ohne sichtbare Anführungszeichen,
+ * timeline zeigt sie sichtbar an (darum dort zeilenbasiert).
+ */
+export const DIAGRAMM_ERLAUBTE_TYPEN = [
+  "flowchart",
+  "graph",
+  "timeline",
+  "mindmap",
+] as const;
+export type DiagrammTyp = (typeof DIAGRAMM_ERLAUBTE_TYPEN)[number];
+
+/** Diagrammtyp aus der ersten nicht-leeren Zeile, null = unbekannt. */
+export function diagrammTyp(definition: string): DiagrammTyp | null {
+  const kopf = definition
+    .split("\n")
+    .map((zeile) => zeile.trim())
+    .find((zeile) => zeile.length > 0);
+  if (!kopf) return null;
+  if (/^(?:flowchart|graph)(?:\s+(?:TB|TD|BT|RL|LR))?$/.test(kopf)) {
+    return kopf.startsWith("flowchart") ? "flowchart" : "graph";
+  }
+  if (kopf === "timeline") return "timeline";
+  if (kopf === "mindmap") return "mindmap";
+  return null;
+}
+
+/**
+ * Textmuster, die in der ROHEN Diagramm-Definition (inkl.
+ * Beschriftungen) nie vorkommen dürfen. Sicherheit in der Tiefe: Der
+ * Player rendert ohnehin ausschliesslich mit securityLevel "strict"
+ * (Mermaid escapt HTML), aber Moduldaten sollen solche Konstrukte gar
+ * nicht erst enthalten – auch nicht in lokal eingeladenen Modulen.
+ */
+export const DIAGRAMM_VERBOTENE_MUSTER: ReadonlyArray<{
+  muster: RegExp;
+  grund: string;
+}> = [
+  { muster: /</, grund: "HTML/`<`-Zeichen (auch <br/> – lange Texte auf mehrere Knoten aufteilen)" },
+  { muster: /`/, grund: "Backtick (Mermaid-Markdown-Strings)" },
+  { muster: /%%/, grund: "Kommentar bzw. Direktive (%%)" },
+  { muster: /#\w+;/, grund: "Mermaid-Entity (#…;)" },
+  { muster: /&[a-zA-Z]+;|&#/, grund: "HTML-Entity (&…; bzw. &#…)" },
+  { muster: /javascript:/i, grund: "javascript:-URL" },
+];
+
+/**
+ * Syntax-Konstrukte, die nur AUSSERHALB der Beschriftungen verboten
+ * sind – geprüft auf der MASKIERTEN Definition
+ * (maskiereDiagrammLabels), damit harmloser Beschriftungstext wie
+ * «click the button» keinen Fehlalarm auslöst.
+ */
+export const DIAGRAMM_VERBOTENE_SYNTAX: ReadonlyArray<{
+  muster: RegExp;
+  grund: string;
+}> = [
+  { muster: /\bclick\b/i, grund: "click-Interaktion" },
+  { muster: /\bcallback\b/i, grund: "callback-Aufruf" },
+  { muster: /\bhref\b/i, grund: "href-Link" },
+  { muster: /\bclassDef\b/i, grund: "classDef-Styling" },
+  { muster: /\blinkStyle\b/i, grund: "linkStyle-Styling" },
+  // Wortgrenze statt Zeilenanfang: «A --> B; style A fill:#f00» wäre
+  // sonst durchgerutscht (Review-Fund); Fehlalarme drohen nicht, die
+  // Prüfung läuft auf der maskierten Definition ohne Beschriftungen.
+  { muster: /\bstyle\b/i, grund: "style-Anweisung" },
+  { muster: /:::/, grund: "Klassen-Kurzform (:::)" },
+  { muster: /::icon/i, grund: "Icon-Anweisung (::icon)" },
+  { muster: /@\{/, grund: "Knoten-Metadaten (@{ … })" },
+];
+
+/** Eine übersetzbare Beschriftung in der Diagramm-Definition. */
+export interface DiagrammLabel {
+  /** Startindex des Beschriftungs-TEXTES (bei Quote-Typen ohne die Anführungszeichen). */
+  start: number;
+  /** Endindex (exklusiv). */
+  ende: number;
+  /** Der Beschriftungstext. */
+  text: string;
+  /**
+   * true = timeline-title/section-Rest (ganze Zeile ab Schlüsselwort):
+   * Dort ist ein Doppelpunkt IM Text erlaubt – die Zeile wird als EIN
+   * Label re-extrahiert, das Rückschreiben bleibt invertierbar. Nur
+   * die ":"-getrennten EREIGNIS-Abschnitte verbieten den Doppelpunkt
+   * (Review-Fund 21.9.2026: «title Projekt: Phasen» ist gültig und
+   * muss übersetzbar bleiben).
+   */
+  ganzzeilig?: boolean;
+}
+
+/**
+ * Quote-Konvention (flowchart/graph/mindmap): Beschriftungen stehen
+ * ausnahmslos in doppelten Anführungszeichen ("…") – alles zwischen
+ * Quote-Paaren ist Beschriftung, alles ausserhalb ist Syntax.
+ * Rückgabe string = Fehlermeldung.
+ */
+function quoteSpannen(definition: string): DiagrammLabel[] | string {
+  const spannen: DiagrammLabel[] = [];
+  let i = definition.indexOf('"');
+  while (i >= 0) {
+    const ende = definition.indexOf('"', i + 1);
+    if (ende < 0) return 'unpaarige Anführungszeichen (") in der Definition';
+    const text = definition.slice(i + 1, ende);
+    if (text.includes("\n")) return "Beschriftung über mehrere Zeilen (Quote-Paar prüfen)";
+    if (text.trim().length === 0) return 'leere Beschriftung ("")';
+    spannen.push({ start: i + 1, ende, text });
+    i = definition.indexOf('"', ende + 1);
+  }
+  return spannen;
+}
+
+/**
+ * Zeilen-Konvention (timeline): In einer Zeitleiste ist JEDER Text
+ * Beschriftung – title/section-Zeilen ab dem Schlüsselwort, Ereignis-
+ * Zeilen als ":"-getrennte Abschnitte. Anführungszeichen sind hier
+ * verboten (Mermaid rendert sie sichtbar – Chrome-Befund 21.9.2026),
+ * ein Doppelpunkt IN einem Text ist nicht darstellbar (Trennzeichen).
+ */
+function timelineSpannen(definition: string): DiagrammLabel[] | string {
+  if (definition.includes('"')) {
+    return 'timeline: Anführungszeichen (") werden sichtbar mitgerendert – «…» verwenden';
+  }
+  const spannen: DiagrammLabel[] = [];
+  let offset = 0;
+  let kopfGesehen = false;
+  for (const zeile of definition.split("\n")) {
+    const getrimmt = zeile.trim();
+    if (getrimmt.length === 0 || !kopfGesehen) {
+      if (getrimmt.length > 0) kopfGesehen = true;
+      offset += zeile.length + 1;
+      continue;
+    }
+    const anfang = offset + (zeile.length - zeile.trimStart().length);
+    const schluessel = /^(?:title|section)\s+/.exec(getrimmt);
+    if (schluessel) {
+      const start = anfang + schluessel[0].length;
+      const text = getrimmt.slice(schluessel[0].length);
+      spannen.push({ start, ende: start + text.length, text, ganzzeilig: true });
+    } else {
+      let pos = anfang;
+      for (const teil of getrimmt.split(":")) {
+        const links = teil.length - teil.trimStart().length;
+        const text = teil.trim();
+        if (text.length > 0) {
+          spannen.push({ start: pos + links, ende: pos + links + text.length, text });
+        }
+        pos += teil.length + 1;
+      }
+    }
+    offset += zeile.length + 1;
+  }
+  return spannen;
+}
+
+/**
+ * Alle übersetzbaren Beschriftungen der Definition in Dokumentfolge –
+ * die EINZIGE Extraktions-Stelle: Übersetzungs-Werkzeug (Segmente),
+ * Struktur-Vergleich (Maskierung) und Validierer (Vollständigkeit)
+ * bauen alle hierauf, damit sie nie auseinanderlaufen. Rückgabe
+ * string = Fehlermeldung.
+ */
+export function extrahiereDiagrammLabels(
+  definition: string,
+): DiagrammLabel[] | string {
+  const typ = diagrammTyp(definition);
+  if (!typ) {
+    return `unbekannter Diagrammtyp – die erste nicht-leere Zeile muss einer von ${DIAGRAMM_ERLAUBTE_TYPEN.join(
+      ", ",
+    )} sein (flowchart/graph optional mit Richtung TB/TD/BT/RL/LR)`;
+  }
+  return typ === "timeline" ? timelineSpannen(definition) : quoteSpannen(definition);
+}
+
+/**
+ * Definition mit ENTFERNTEN Beschriftungs-Texten (Quote-Typen: ""
+ * bleibt stehen, timeline: leere Abschnitte): Grundlage des
+ * Master↔Fassung-Struktur-Vergleichs (uebersetzung/struktur.ts) und
+ * der Syntax-Verbote. Ungültige Definitionen kommen unverändert
+ * zurück – die Validierung meldet sie separat.
+ */
+export function maskiereDiagrammLabels(definition: string): string {
+  const spannen = extrahiereDiagrammLabels(definition);
+  if (typeof spannen === "string") return definition;
+  let ergebnis = "";
+  let pos = 0;
+  for (const spanne of spannen) {
+    ergebnis += definition.slice(pos, spanne.start);
+    pos = spanne.ende;
+  }
+  return ergebnis + definition.slice(pos);
+}
+
+/**
+ * Schreibt übersetzte Beschriftungen positionsgetreu zurück (Werkzeug-
+ * Gegenstück zu extrahiereDiagrammLabels). Wirft bei Struktur-
+ * Verstössen LAUT (Anzahl, Zeilenumbruch, verbotene Zeichen je Typ) –
+ * der Übersetzungslauf soll scheitern statt still kaputte Diagramme
+ * zu erzeugen; der Aufrufer validiert das Ergebnis zusätzlich mit
+ * diagrammDefinitionFehler.
+ */
+export function ersetzeDiagrammLabels(
+  definition: string,
+  texte: readonly string[],
+): string {
+  const typ = diagrammTyp(definition);
+  const spannen = extrahiereDiagrammLabels(definition);
+  if (typeof spannen === "string") throw new Error(`Diagramm: ${spannen}`);
+  if (texte.length !== spannen.length) {
+    throw new Error(
+      `Diagramm: ${texte.length} Übersetzungen für ${spannen.length} Beschriftungen.`,
+    );
+  }
+  texte.forEach((text, i) => {
+    const getrimmt = text.trim();
+    if (getrimmt.length === 0) throw new Error("Diagramm: leere Übersetzung.");
+    if (/[\n"]/.test(getrimmt)) {
+      throw new Error(
+        `Diagramm: Übersetzung enthält Zeilenumbruch oder Anführungszeichen (") – nicht darstellbar: «${getrimmt.slice(0, 40)}»`,
+      );
+    }
+    // Nur EREIGNIS-Abschnitte: In title/section-Zeilen (ganzzeilig) ist
+    // ":" erlaubt und invertierbar (s. DiagrammLabel.ganzzeilig).
+    if (typ === "timeline" && !spannen[i].ganzzeilig && getrimmt.includes(":")) {
+      throw new Error(
+        `Diagramm: timeline-Übersetzung enthält einen Doppelpunkt (Trennzeichen) – umformulieren: «${getrimmt.slice(0, 40)}»`,
+      );
+    }
+  });
+  let ergebnis = "";
+  let pos = 0;
+  spannen.forEach((spanne, i) => {
+    ergebnis += definition.slice(pos, spanne.start) + texte[i].trim();
+    pos = spanne.ende;
+  });
+  return ergebnis + definition.slice(pos);
+}
+
+/** Höchstlänge einer einzelnen Diagramm-Beschriftung. */
+export const DIAGRAMM_LABEL_MAX_ZEICHEN = 200;
+
+/**
+ * Vollständige Prüfung einer Diagramm-Definition (Typ, verbotene
+ * Muster, Beschriftungs-Konvention) – EINZIGE Prüf-Stelle, läuft im
+ * Schema-superRefine und damit überall, wo Module geparst werden
+ * (Plattform-Build, Content-CI, lokaler Import). null = in Ordnung,
+ * sonst die Fehlermeldung. Bewusste Grenze: Die syntaktische
+ * Mermaid-GÜLTIGKEIT (Tippfehler in Pfeilen usw.) prüft erst der
+ * Player bzw. die Vorschau – der Renderer zeigt bei Fehlern ehrlich
+ * die Pflicht-Textbeschreibung statt des Diagramms.
+ */
+export function diagrammDefinitionFehler(definition: string): string | null {
+  const typ = diagrammTyp(definition);
+  if (!typ) {
+    return `Unbekannter Diagrammtyp – die erste nicht-leere Zeile muss einer von ${DIAGRAMM_ERLAUBTE_TYPEN.join(
+      ", ",
+    )} sein (flowchart/graph optional mit Richtung TB/TD/BT/RL/LR).`;
+  }
+  for (const { muster, grund } of DIAGRAMM_VERBOTENE_MUSTER) {
+    if (muster.test(definition)) return `Nicht erlaubt: ${grund}.`;
+  }
+  const spannen = extrahiereDiagrammLabels(definition);
+  if (typeof spannen === "string") return spannen;
+  if (spannen.length === 0) {
+    return typ === "timeline"
+      ? "Die Zeitleiste hat keinen einzigen Text."
+      : 'Das Diagramm hat keine einzige Beschriftung – Knotentexte in Anführungszeichen setzen (z. B. A["Text"]).';
+  }
+  for (const spanne of spannen) {
+    if (spanne.text.length > DIAGRAMM_LABEL_MAX_ZEICHEN) {
+      return `Beschriftung länger als ${DIAGRAMM_LABEL_MAX_ZEICHEN} Zeichen («${spanne.text.slice(0, 40)}…») – lange Texte gehören in die Textbeschreibung oder einen Text-Block.`;
+    }
+  }
+  const maskiert = maskiereDiagrammLabels(definition);
+  for (const { muster, grund } of DIAGRAMM_VERBOTENE_SYNTAX) {
+    if (muster.test(maskiert)) return `Nicht erlaubt: ${grund}.`;
+  }
+  if (typ === "mindmap") {
+    // Jeder Knoten braucht eine explizite Form MIT gequoteter
+    // Beschriftung – nackte Textzeilen rendert Mermaid zwar, aber eine
+    // spätere Quote-Setzung erschiene dort sichtbar, und unquotierter
+    // Text bliebe unübersetzt (Chrome-Befund 21.9.2026).
+    let kopfGesehen = false;
+    for (const zeile of maskiert.split("\n")) {
+      const getrimmt = zeile.trim();
+      if (getrimmt.length === 0) continue;
+      if (!kopfGesehen) {
+        kopfGesehen = true;
+        continue;
+      }
+      if (!/^[\p{L}\p{N}_-]*(?:\(\(""\)\)|\[""\]|\(""\)|\{\{""\}\})$/u.test(getrimmt)) {
+        return `mindmap: Jeder Knoten braucht eine Form mit Beschriftung in Anführungszeichen – z. B. wurzel(("…")), a["…"], b("…") oder c{{"…"}}; die Zeile «${getrimmt.slice(0, 40)}» nicht.`;
+      }
+    }
+  }
+  if (typ === "flowchart" || typ === "graph") {
+    // Vollständigkeits-Netz: Kein sichtbarer Text darf an der
+    // Übersetzung vorbeilaufen. Gequotete Kantenlabel-Paare |""|
+    // zuerst entfernen – die SCHLIESSENDE Pipe stünde sonst direkt vor
+    // dem Folgeknoten («|""| C») und fiele als Fehlalarm in die
+    // Klammer-Prüfung. (a) Text direkt in Form-Klammern,
+    const ohneKantenlabels = maskiert.replace(/\|""[ \t]*\|/g, " ");
+    if (/[\[({|][^"\])}|]*[\p{L}\p{N}]/u.test(ohneKantenlabels)) {
+      return 'flowchart: Beschriftungen gehören in Anführungszeichen – z. B. A["Text"], B{"Frage?"}, -->|"Beschriftung"|.';
+    }
+    if (/(?<=[A-Za-z0-9_])>[^"\]]*[\p{L}\p{N}]/u.test(ohneKantenlabels)) {
+      return 'flowchart: Beschriftungen gehören in Anführungszeichen – auch in der Fahnen-Form D>"Text"].';
+    }
+    // (b) unquotierte Inline-Kantenbeschriftungen (A -- Text --> B),
+    if (
+      /(?<!-)--[ \t]+[^">\s-]/.test(ohneKantenlabels) ||
+      /-\.[ \t]+[^".\s]/.test(ohneKantenlabels) ||
+      /(?<!=)==[ \t]+[^"=\s]/.test(ohneKantenlabels)
+    ) {
+      return 'flowchart: Kantenbeschriftungen gehören in Anführungszeichen – z. B. A -- "Beschriftung" --> B.';
+    }
+    // (c) Knoten ohne Beschriftung: Mermaid zeigt sonst die rohe id
+    // als sichtbaren (unübersetzbaren) Text an. Konvention: erst alle
+    // Knoten mit Beschriftung definieren, dann die Verbindungen.
+    // Kopf- und direction-Zeilen fliegen VOR dem Scan raus – die
+    // Richtungs-Wörter kontextlos zu erlauben liesse «A --> LR» durch
+    // (LR wäre ein sichtbarer, unübersetzbarer Knoten; Review-Fund).
+    // Beide Scans Unicode-fähig wie die Prüfungen (a)/(b): «Prüfung»
+    // zerfiel ASCII-only in Fragmente und erzeugte Fehlalarme.
+    const scanBasis = ohneKantenlabels
+      .split("\n")
+      .filter(
+        (zeile) =>
+          !/^\s*(?:flowchart|graph)(?:\s+(?:TB|TD|BT|RL|LR))?\s*$/.test(zeile) &&
+          !/^\s*direction\s+(?:TB|TD|BT|RL|LR)\s*$/.test(zeile),
+      )
+      .join("\n");
+    const schluesselwoerter = new Set(["subgraph", "end"]);
+    const definierte = new Set<string>();
+    for (const treffer of scanBasis.matchAll(
+      /([\p{L}\p{N}_](?:[\p{L}\p{N}_-]*[\p{L}\p{N}_])?)(?=\[|\(|\{|>)/gu,
+    )) {
+      definierte.add(treffer[1]);
+    }
+    for (const treffer of scanBasis.matchAll(/[\p{L}\p{N}_-]+/gu)) {
+      const kennung = treffer[0].replace(/^-+|-+$/g, "");
+      if (kennung.length === 0 || !/[\p{L}\p{N}]/u.test(kennung)) continue;
+      if (schluesselwoerter.has(kennung) || definierte.has(kennung)) continue;
+      return `flowchart: Der Knoten «${kennung}» hat keine Beschriftung – jedem Knoten einmal eine Form mit Anführungszeichen geben (z. B. ${kennung}["…"]); danach reicht die nackte id in Verbindungen. (Trifft die Meldung einen Pfeil, ist dessen Form nicht unterstützt – nur -->, ---, -.-> und ==> verwenden.)`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Schaubild als Daten (NEU seit 21.9.2026): Statt eines gerenderten
+ * Bilds mit eingebranntem Text trägt der Block eine Mermaid-Definition
+ * – der Player rendert sie lokal (gebündeltes Mermaid, KEIN CDN) mit
+ * securityLevel "strict"; Beschriftungen laufen durch die normale
+ * Übersetzungs-Ableitung (uebersetzung/felder.ts, Klasse "diagramm"),
+ * die Mermaid-Syntax selbst ist invariant. Kein prüfender Block.
+ * ROLLOUT: Für ältere Player ist "diagramm" ein unbekannter Blocktyp
+ * (unknownBlockSchema-Platzhalter) – Module bleiben dort gültig.
+ */
+export const diagrammBlockSchema = z
+  .strictObject({
+    ...blockBase,
+    type: z.literal("diagramm"),
+    /**
+     * Mermaid-Definition (Typen: DIAGRAMM_ERLAUBTE_TYPEN).
+     * Beschriftungs-Konvention je Typ erzwingt diagrammDefinitionFehler
+     * – flowchart/graph/mindmap: alle Texte in "…", timeline: Texte
+     * ohne Anführungszeichen (jeder Text ist dort Beschriftung).
+     */
+    definition: z.string().min(1).max(5000),
+    /**
+     * Pflicht-Textbeschreibung des Schaubilds (reiner Text): Alt-Text
+     * für Screenreader, Vorlese-Quelle und ehrlicher Fallback, wenn
+     * das Rendern scheitert. Wird mitübersetzt.
+     */
+    beschreibung: z.string().trim().min(1).max(2000),
+  })
+  .superRefine((block, ctx) => {
+    const fehler = diagrammDefinitionFehler(block.definition);
+    if (fehler) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["definition"],
+        message: `Diagramm: ${fehler}`,
+      });
+    }
+  });
+
+// --- Schaubild (Excalidraw-Szene als Daten) ---------------------------------
+
+/**
+ * Blocktyp "schaubild" (NEU seit 21.9.2026): gestaltete Schaubilder im
+ * Handzeichnungs-Stil. Autorinnen zeichnen im kostenlosen
+ * Excalidraw-Editor und fügen die exportierte Szene als eingebettetes
+ * JSON direkt in den Block ein – keine separate Datei, kein
+ * Vorrendern; der Player zeichnet zur Laufzeit im Browser
+ * (@excalidraw/excalidraw, EXAKT 0.18.1 gepinnt, MIT; Schriften
+ * Excalifont + Nunito, beide OFL-1.1 – docs/DRITTANBIETER-LIZENZEN.md).
+ *
+ * SICHERHEIT (beide Validierer + lokaler Import über dieses Schema):
+ * Zulässig sind NUR Formen (rectangle/ellipse/diamond), Pfeile,
+ * Linien, Freihand und Text. Eingebettete Webinhalte (embeddable/
+ * iframe), Bilder (image + files), Frames und Element-Links werden
+ * LAUT abgelehnt – empirischer Befund 21.9.2026: exportToSvg rendert
+ * element.link als klickbaren <a>-Wrapper, und embeddable-URLs landen
+ * auch ohne renderEmbeddables-Flag im SVG.
+ *
+ * VERSCHLANKUNG: verschlankeSchaubildSzene projiziert den
+ * Editor-Export auf eine FESTE Feldliste (alle rendering-relevanten
+ * Felder EXPLIZIT – bewusst keine «nur bei Nicht-Default
+ * speichern»-Magie: die Restore-Defaults sind undokumentierte Empirie
+ * der gepinnten Version und dürfen das gespeicherte Bild nie still
+ * verändern), entfernt gelöschte Elemente, Versions-/Zeitstempel-
+ * Felder (version, versionNonce, updated, index), Bindungs-Caches
+ * (boundElements/startBinding/endBinding – der Player rekonstruiert
+ * Container-Bindungen über restoreElements repairBindings aus
+ * containerId, Pfeil-Geometrie ist in points eingefroren) und rundet
+ * Zahlen auf 2 Dezimalstellen (Excalidraws eigener
+ * SVG-Export-Standard; −72 % bei Freihand). `seed` BLEIBT: er macht
+ * das RoughJS-Zittern deterministisch – ohne ihn sähe das Schaubild
+ * bei jedem Render und zwischen Master und Fassung anders aus.
+ */
+export const SCHAUBILD_ERLAUBTE_TYPEN = [
+  "rectangle",
+  "ellipse",
+  "diamond",
+  "arrow",
+  "line",
+  "freedraw",
+  "text",
+] as const;
+export type SchaubildElementTyp = (typeof SCHAUBILD_ERLAUBTE_TYPEN)[number];
+
+/** Verbotene Excalidraw-Element-Typen (aktive/eingebettete Inhalte). */
+export const SCHAUBILD_VERBOTENE_TYPEN = [
+  "image",
+  "embeddable",
+  "iframe",
+  "frame",
+  "magicframe",
+] as const;
+
+/** Obergrenze des kanonischen Szenen-JSON (UTF-8) je Schaubild. */
+export const SCHAUBILD_SZENE_MAX_BYTES = 262144; // 256 KB ≈ 2× einer gemessenen schweren Freihand-Szene
+/** Warnschwelle des Content-Validators. */
+export const SCHAUBILD_SZENE_WARN_BYTES = 131072;
+export const SCHAUBILD_MAX_ELEMENTE = 300;
+export const SCHAUBILD_TEXT_MAX_ZEICHEN = 1000;
+export const SCHAUBILD_TEXT_GESAMT_MAX_ZEICHEN = 10000;
+
+const schaubildIdSchema = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/, {
+  message:
+    "Schaubild: Element-ids bestehen aus 1-40 Zeichen A-Z, a-z, 0-9, _ oder -.",
+});
+const schaubildKoordinate = z.number().finite().min(-100000).max(100000);
+const schaubildMass = z.number().finite().min(0).max(100000);
+const schaubildFarbe = z.string().regex(
+  /^(#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|transparent)$/,
+  { message: 'Schaubild: Farben als Hex (#rrggbb, optional Alpha) oder "transparent".' },
+);
+const schaubildPunkt = z.tuple([schaubildKoordinate, schaubildKoordinate]);
+const schaubildPfeilspitze = z
+  .enum([
+    "arrow",
+    "bar",
+    "dot",
+    "circle",
+    "circle_outline",
+    "triangle",
+    "triangle_outline",
+    "diamond",
+    "diamond_outline",
+    "crowfoot_one",
+    "crowfoot_many",
+    "crowfoot_one_or_many",
+  ])
+  .nullable();
+
+/** Gemeinsame Felder aller Schaubild-Elemente (feste, explizite Liste). */
+const schaubildBasis = {
+  id: schaubildIdSchema,
+  x: schaubildKoordinate,
+  y: schaubildKoordinate,
+  width: schaubildMass,
+  height: schaubildMass,
+  angle: z.number().finite().min(-6.2832).max(6.2832),
+  strokeColor: schaubildFarbe,
+  backgroundColor: schaubildFarbe,
+  fillStyle: z.enum(["hachure", "cross-hatch", "solid", "zigzag"]),
+  strokeWidth: z.number().finite().min(0.5).max(8),
+  strokeStyle: z.enum(["solid", "dashed", "dotted"]),
+  roughness: z.number().finite().min(0).max(3),
+  opacity: z.number().finite().min(0).max(100),
+  roundness: z
+    .strictObject({
+      type: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+      value: z.number().finite().min(0).max(100).optional(),
+    })
+    .nullable(),
+  /** RoughJS-Zufalls-Saat – hält das Hand-Zittern deterministisch. */
+  seed: z.number().int(),
+};
+
+const schaubildRechteckSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("rectangle"),
+});
+const schaubildEllipseSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("ellipse"),
+});
+const schaubildRauteSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("diamond"),
+});
+
+export const schaubildTextSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("text"),
+  /**
+   * Der Beschriftungstext UNumbrochen (Editor-originalText): Der
+   * Player bricht ihn beim Rendern an der Container- bzw.
+   * Element-Breite neu um (restoreElements refreshDimensions) –
+   * darum überleben Übersetzungen ohne gespeicherte Umbrüche.
+   * Gewollte Absätze als \n.
+   */
+  text: z
+    .string()
+    .min(1)
+    .max(SCHAUBILD_TEXT_MAX_ZEICHEN)
+    .refine((t) => !/[ -	-]/.test(t), {
+      message:
+        "Schaubild: Steuerzeichen sind im Text nicht erlaubt (Zeilenumbruch als \\n ist ok).",
+    }),
+  fontSize: z.number().finite().min(8).max(96),
+  /**
+   * Zwei Schriftfamilien, beide selbst gehostet (OFL-1.1, Kopie via
+   * kopiere-excalidraw-fonts.mjs): 5 = Handschrift Excalifont
+   * («Hand-drawn»), 6 = serifenlose Normal-Schrift Nunito («Normal»,
+   * seit 24.9.2026; das Paket registriert sie mit Gewicht 500). Die
+   * alten Editor-Codes werden normalisiert (1/Virgil→5,
+   * 2/Helvetica→6); alle übrigen Codes lehnt die Verschlankung LAUT
+   * ab – sie fielen beim Rendern sonst STILL auf eine
+   * Emoji-Systemschrift zurück (empirischer Befund).
+   */
+  fontFamily: z.union([z.literal(5), z.literal(6)]),
+  textAlign: z.enum(["left", "center", "right"]),
+  verticalAlign: z.enum(["top", "middle", "bottom"]),
+  /** id des Elements, in dem der Text gebunden lebt (Kasten-/Pfeil-Label). */
+  containerId: schaubildIdSchema.nullable(),
+  /** false = feste Breite (Text bricht daran um) – für Freitext empfohlen. */
+  autoResize: z.boolean(),
+  lineHeight: z.number().finite().min(0.8).max(3),
+});
+
+export const schaubildPfeilSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("arrow"),
+  points: z.array(schaubildPunkt).min(2).max(64),
+  startArrowhead: schaubildPfeilspitze,
+  endArrowhead: schaubildPfeilspitze,
+  elbowed: z.boolean(),
+});
+
+export const schaubildLinieSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("line"),
+  points: z.array(schaubildPunkt).min(2).max(512),
+  startArrowhead: schaubildPfeilspitze,
+  endArrowhead: schaubildPfeilspitze,
+});
+
+export const schaubildFreihandSchema = z.strictObject({
+  ...schaubildBasis,
+  type: z.literal("freedraw"),
+  points: z.array(schaubildPunkt).min(2).max(2000),
+  /** true = Druckverlauf simuliert (pressures entfallen dann). */
+  simulatePressure: z.boolean(),
+  /**
+   * Echte Stift-Druckwerte – NUR bei simulatePressure false (dann
+   * rendering-relevant, empirisch belegt) und dann genau eine je
+   * Punkt; bei simulatePressure true entfernt sie der Verschlanker.
+   */
+  pressures: z.array(z.number().min(0).max(1)).max(2000).optional(),
+});
+
+export const schaubildElementSchema = z.discriminatedUnion("type", [
+  schaubildRechteckSchema,
+  schaubildEllipseSchema,
+  schaubildRauteSchema,
+  schaubildPfeilSchema,
+  schaubildLinieSchema,
+  schaubildFreihandSchema,
+  schaubildTextSchema,
+]);
+export type SchaubildElement = z.infer<typeof schaubildElementSchema>;
+
+export const schaubildSzeneSchema = z
+  .strictObject({
+    /** Elemente in Zeichen-Reihenfolge (verschlanktes Format, s. o.). */
+    elemente: z.array(schaubildElementSchema).min(1).max(SCHAUBILD_MAX_ELEMENTE),
+    /** Hintergrundfarbe der Zeichenfläche (Standard: transparent). */
+    hintergrund: schaubildFarbe.optional(),
+  })
+  .superRefine((szene, ctx) => {
+    const ids = new Set<string>();
+    szene.elemente.forEach((el, i) => {
+      if (ids.has(el.id)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["elemente", i, "id"],
+          message: `Schaubild: Element-id "${el.id}" ist doppelt - ids müssen szenenweit eindeutig sein.`,
+        });
+      }
+      ids.add(el.id);
+      if (el.type === "freedraw") {
+        if (el.simulatePressure && el.pressures) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["elemente", i, "pressures"],
+            message:
+              "Schaubild: pressures nur bei simulatePressure false (sonst toter Ballast).",
+          });
+        }
+        if (
+          !el.simulatePressure &&
+          el.pressures &&
+          el.pressures.length !== el.points.length
+        ) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["elemente", i, "pressures"],
+            message: `Schaubild: ${el.pressures.length} Druckwerte für ${el.points.length} Punkte - je Punkt genau einer.`,
+          });
+        }
+      }
+    });
+    let textGesamt = 0;
+    szene.elemente.forEach((el, i) => {
+      if (el.type !== "text") return;
+      textGesamt += el.text.length;
+      if (el.containerId !== null) {
+        const container = szene.elemente.find((k) => k.id === el.containerId);
+        if (!container) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["elemente", i, "containerId"],
+            message: `Schaubild: containerId "${el.containerId}" verweist auf kein Element der Szene.`,
+          });
+        } else if (
+          !["rectangle", "ellipse", "diamond", "arrow"].includes(container.type)
+        ) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["elemente", i, "containerId"],
+            message: `Schaubild: Text kann nur in Formen oder an Pfeilen gebunden sein, nicht in "${container.type}".`,
+          });
+        }
+      }
+    });
+    if (textGesamt > SCHAUBILD_TEXT_GESAMT_MAX_ZEICHEN) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["elemente"],
+        message: `Schaubild: ${textGesamt} Zeichen Text gesamt - erlaubt sind ${SCHAUBILD_TEXT_GESAMT_MAX_ZEICHEN} (lange Texte gehören in die beschreibung oder einen Text-Block).`,
+      });
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(szene)).length;
+    if (bytes > SCHAUBILD_SZENE_MAX_BYTES) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["elemente"],
+        message: `Schaubild: Szene ist ${bytes} Bytes gross - erlaubt sind ${SCHAUBILD_SZENE_MAX_BYTES} (Freihand-Striche reduzieren oder das Schaubild aufteilen).`,
+      });
+    }
+  });
+export type SchaubildSzene = z.infer<typeof schaubildSzeneSchema>;
+
+const schaubildRund2 = (n: number): number => Math.round(n * 100) / 100;
+const schaubildRund3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+/**
+ * Projiziert einen Excalidraw-Editor-Export (Envelope, elements-Array
+ * oder bereits verschlanktes Blockformat) auf das kanonische
+ * Schaubild-Format – DIE eine Verschlankungs-Stelle (Schema-transform,
+ * Content-Skript, Editor-Einfügen). Rückgabe {fehler} mit klarer
+ * Meldung statt stillem Wegwerfen; die Feinprüfung der Werte macht
+ * danach schaubildSzeneSchema. Bewusst OHNE Excalidraw-Abhängigkeit
+ * (reine Projektion – dieses Schema läuft auch in der Content-CI und
+ * beim lokalen Import, wo die Bibliothek nicht existiert); veraltete
+ * Editor-Formate (strokeSharpness) werden mit Neu-Export-Hinweis
+ * abgelehnt statt migriert.
+ */
+export function verschlankeSchaubildSzene(
+  roh: unknown,
+): { szene: Record<string, unknown> } | { fehler: string } {
+  let elementeRoh: unknown[];
+  let hintergrund: unknown;
+  if (Array.isArray(roh)) {
+    elementeRoh = roh;
+  } else if (roh && typeof roh === "object") {
+    const o = roh as Record<string, unknown>;
+    if (Array.isArray(o.elemente)) {
+      elementeRoh = o.elemente;
+      hintergrund = o.hintergrund;
+    } else if (Array.isArray(o.elements)) {
+      if (o.type !== undefined && o.type !== "excalidraw") {
+        return { fehler: `unbekanntes Szenen-Format (type "${String(o.type)}").` };
+      }
+      if (typeof o.version === "number" && o.version > 2) {
+        return {
+          fehler: `Szenen-Format-Version ${o.version} ist neuer als die unterstützte Version 2 - vermutlich braucht die Plattform ein Excalidraw-Update, bevor dieser Export nutzbar ist.`,
+        };
+      }
+      if (
+        o.files &&
+        typeof o.files === "object" &&
+        Object.keys(o.files as object).length > 0
+      ) {
+        return {
+          fehler:
+            "eingebettete Bilddateien (files) sind nicht erlaubt - Fotos/Illustrationen gehören in einen image-Block, Schaubilder bestehen aus Formen und Text.",
+        };
+      }
+      const appState = o.appState;
+      if (appState && typeof appState === "object") {
+        const vbg = (appState as Record<string, unknown>).viewBackgroundColor;
+        if (typeof vbg === "string" && vbg !== "#ffffff" && vbg !== "transparent") {
+          hintergrund = vbg;
+        }
+      }
+      elementeRoh = o.elements;
+    } else {
+      return {
+        fehler:
+          'keine Elemente gefunden - erwartet wird der Excalidraw-Export ({"type":"excalidraw",...,"elements":[...]}).',
+      };
+    }
+  } else {
+    return { fehler: "die Szene muss der als JSON eingefügte Excalidraw-Export sein." };
+  }
+
+  const elemente: Record<string, unknown>[] = [];
+  for (let i = 0; i < elementeRoh.length; i++) {
+    const el = elementeRoh[i];
+    if (!el || typeof el !== "object") {
+      return { fehler: `Element ${i} ist kein Objekt.` };
+    }
+    const e = el as Record<string, unknown>;
+    if (e.isDeleted === true) continue;
+    const typ = e.type;
+    if (typ === "selection") continue;
+    if ((SCHAUBILD_VERBOTENE_TYPEN as readonly string[]).includes(typ as string)) {
+      return {
+        fehler: `Element-Typ "${String(typ)}" ist nicht erlaubt - zulässig sind nur Formen, Pfeile, Linien, Freihand und Text (keine eingebetteten Webinhalte oder Bilder).`,
+      };
+    }
+    if (!(SCHAUBILD_ERLAUBTE_TYPEN as readonly string[]).includes(typ as string)) {
+      return { fehler: `unbekannter Element-Typ "${String(typ)}" (Element ${i}).` };
+    }
+    if (typeof e.link === "string" && e.link !== "") {
+      return {
+        fehler: `Element "${String(e.id ?? i)}" trägt einen Link - Links an Elementen sind nicht erlaubt (sie würden als klickbare Flächen im Schaubild landen).`,
+      };
+    }
+    if ("strokeSharpness" in e) {
+      return {
+        fehler:
+          "die Szene stammt aus einem veralteten Excalidraw-Format (strokeSharpness) - bitte auf excalidraw.com öffnen und neu exportieren.",
+      };
+    }
+    const zahl = (wert: unknown, fallback: number): number =>
+      typeof wert === "number" && Number.isFinite(wert) ? schaubildRund2(wert) : fallback;
+    const rundung = e.roundness as Record<string, unknown> | null | undefined;
+    const basis: Record<string, unknown> = {
+      id: typeof e.id === "string" ? e.id.slice(0, 40) : `el${i}`,
+      type: typ,
+      x: zahl(e.x, 0),
+      y: zahl(e.y, 0),
+      width: zahl(e.width, 0),
+      height: zahl(e.height, 0),
+      angle: zahl(e.angle, 0),
+      strokeColor: typeof e.strokeColor === "string" ? e.strokeColor : "#1e1e1e",
+      backgroundColor:
+        typeof e.backgroundColor === "string" ? e.backgroundColor : "transparent",
+      fillStyle: typeof e.fillStyle === "string" ? e.fillStyle : "solid",
+      strokeWidth: zahl(e.strokeWidth, 2),
+      strokeStyle: typeof e.strokeStyle === "string" ? e.strokeStyle : "solid",
+      roughness: zahl(e.roughness, 1),
+      opacity: zahl(e.opacity, 100),
+      roundness:
+        rundung && typeof rundung === "object"
+          ? {
+              type: rundung.type,
+              ...(typeof rundung.value === "number"
+                ? { value: schaubildRund2(rundung.value) }
+                : {}),
+            }
+          : null,
+      seed:
+        typeof e.seed === "number" && Number.isFinite(e.seed) ? Math.trunc(e.seed) : 1,
+    };
+    if (typ === "text") {
+      const originalText =
+        typeof e.originalText === "string" && e.originalText.length > 0
+          ? e.originalText
+          : typeof e.text === "string"
+            ? e.text
+            : "";
+      let fontFamily = e.fontFamily;
+      if (fontFamily === 1) fontFamily = 5; // Virgil (alte Handschrift) -> Excalifont
+      if (fontFamily === 2) fontFamily = 6; // Helvetica (alter Normal-Code) -> Nunito
+      if (fontFamily !== undefined && fontFamily !== 5 && fontFamily !== 6) {
+        return {
+          fehler: `Text-Element "${String(basis.id)}" nutzt die Schriftfamilie ${String(e.fontFamily)} - erlaubt sind nur die Excalidraw-Handschrift («Hand-drawn», 5) und die Normal-Schrift («Normal»/Nunito, 6).`,
+        };
+      }
+      elemente.push({
+        ...basis,
+        text: originalText,
+        fontSize: zahl(e.fontSize, 20),
+        fontFamily: fontFamily === 6 ? 6 : 5,
+        textAlign: typeof e.textAlign === "string" ? e.textAlign : "left",
+        verticalAlign: typeof e.verticalAlign === "string" ? e.verticalAlign : "top",
+        containerId: typeof e.containerId === "string" ? e.containerId : null,
+        autoResize: e.autoResize !== false,
+        lineHeight:
+          typeof e.lineHeight === "number" && Number.isFinite(e.lineHeight)
+            ? schaubildRund2(e.lineHeight)
+            : 1.25,
+      });
+      continue;
+    }
+    if (typ === "arrow" || typ === "line" || typ === "freedraw") {
+      if (!Array.isArray(e.points)) {
+        return {
+          fehler: `Element "${String(basis.id)}" (${typ}) hat keine Punkteliste - Export unvollständig?`,
+        };
+      }
+      const points = (e.points as unknown[]).map((p) =>
+        Array.isArray(p) ? [zahl(p[0], 0), zahl(p[1], 0)] : [0, 0],
+      );
+      if (typ === "freedraw") {
+        const simulatePressure = e.simulatePressure !== false;
+        elemente.push({
+          ...basis,
+          points,
+          simulatePressure,
+          ...(!simulatePressure && Array.isArray(e.pressures)
+            ? {
+                pressures: (e.pressures as unknown[]).map((p) =>
+                  schaubildRund3(typeof p === "number" ? p : 0),
+                ),
+              }
+            : {}),
+        });
+        continue;
+      }
+      elemente.push({
+        ...basis,
+        points,
+        startArrowhead: typeof e.startArrowhead === "string" ? e.startArrowhead : null,
+        endArrowhead:
+          typeof e.endArrowhead === "string"
+            ? e.endArrowhead
+            : e.endArrowhead === null || typ === "line"
+              ? null
+              : "arrow",
+        ...(typ === "arrow" ? { elbowed: e.elbowed === true } : {}),
+      });
+      continue;
+    }
+    elemente.push(basis);
+  }
+  if (elemente.length === 0) {
+    return { fehler: "die Szene enthält kein einziges (nicht gelöschtes) Element." };
+  }
+  const szene: Record<string, unknown> = { elemente };
+  if (typeof hintergrund === "string") szene.hintergrund = hintergrund;
+  return { szene };
+}
+
+/**
+ * Glyphen-Vorschubbreiten der Handschrift Excalifont bei 20 px –
+ * EMPIRISCH per canvas.measureText erhoben (Chrome, 21.9.2026;
+ * Font-String «20px Excalifont, Xiaolai, Segoe UI Emoji»). Skalierung
+ * über Schriftgrössen ist exakt linear (gemessen 10-36 px, Faktor
+ * 1.0000). ACHTUNG Kerning: Die Tabelle summiert EINZELGLYPHEN – der
+ * Browser misst ganze Zeilen MIT Kerning und liegt dadurch je nach
+ * Text bis zu ~3 % SCHMALER (empirisch 24.9.2026; Beispiele −1,1 %
+ * bis −3,4 %). Der Nachbau schätzt also meist KONSERVATIV (eher
+ * Fehlalarm als übersehener Überlauf) – die Überlauf-Meldungen sind
+ * darum bewusst HINWEISE, keine Fehler. Grundlage der
+ * Übersetzungs-CI in Node OHNE Canvas; unbekannte Glyphen fallen auf
+ * die «m»-Breite zurück und werden als Hinweis gemeldet.
+ */
+export const SCHAUBILD_GLYPHBREITEN_20PX: Readonly<Record<string, number>> =
+  {
+  "0": 13.28, "1": 8.54, "2": 14, "3": 12.16, "4": 11.7, "5": 12.36,
+  "6": 12.8, "7": 11.16, "8": 12.72, "9": 12.58, " ": 8, "!": 6.28,
+  "\"": 7.42, "#": 15.66, "$": 14.42, "%": 18.56, "&": 14.36, "'": 4.36,
+  "(": 8.82, ")": 8.04, "*": 10.5, "+": 11, ",": 5.14, "-": 8.22,
+  ".": 5.48, "/": 11.22, ":": 5.28, ";": 5.96, "<": 11, "=": 11,
+  ">": 11, "?": 9.32, "@": 16.58, "A": 13.52, "B": 15.22, "C": 12.58,
+  "D": 15.6, "E": 14.14, "F": 13.22, "G": 15.6, "H": 11.46, "I": 10.9,
+  "J": 11.38, "K": 12.26, "L": 10.86, "M": 15.32, "N": 12.64, "O": 15.34,
+  "P": 13.96, "Q": 15.36, "R": 14.72, "S": 12.44, "T": 17.14, "U": 14.6,
+  "V": 11.84, "W": 15.72, "X": 12.56, "Y": 11.28, "Z": 16.64, "[": 9.44,
+  "\\": 11.78, "]": 9.94, "^": 10.2, "_": 13.4, "`": 12, "a": 11.52,
+  "b": 11.1, "c": 10.08, "d": 12.1, "e": 10.74, "f": 9.94, "g": 11.1,
+  "h": 11.34, "i": 4.88, "j": 6.56, "k": 10.66, "l": 4.5, "m": 13.26,
+  "n": 10.52, "o": 12, "p": 10.74, "q": 10.78, "r": 8.24, "s": 10.86,
+  "t": 11.06, "u": 10.96, "v": 10.5, "w": 13.86, "x": 11.82, "y": 10.6,
+  "z": 11.44, "{": 10.08, "|": 5.98, "}": 10.88, "~": 13.38, "Ä": 13.52,
+  "Ö": 15.34, "Ü": 14.6, "ä": 10.84, "ö": 11.22, "ü": 10.16, "ß": 11.46,
+  "á": 10.84, "à": 10.84, "â": 10.84, "ã": 10.84, "å": 10.84, "æ": 18.18,
+  "ç": 10.08, "é": 11.02, "è": 11.02, "ê": 11.02, "ë": 11.02, "í": 4.88,
+  "ì": 4.88, "î": 4.88, "ï": 4.88, "ñ": 10.52, "ó": 11.22, "ò": 11.22,
+  "ô": 11.22, "õ": 11.22, "ø": 12.34, "œ": 18.4, "Œ": 24.2, "ú": 10.16,
+  "ù": 10.16, "û": 10.16, "ý": 10.44, "ÿ": 10.44, "Á": 13.52, "À": 13.52,
+  "Â": 13.52, "Ã": 13.52, "Å": 13.52, "Æ": 20.56, "Ç": 12.58, "É": 14.14,
+  "È": 14.14, "Ê": 14.14, "Ë": 14.14, "Í": 10.9, "Ì": 10.9, "Î": 10.9,
+  "Ï": 10.9, "Ñ": 12.64, "Ó": 15.34, "Ò": 15.34, "Ô": 15.34, "Õ": 15.34,
+  "Ø": 15.44, "Ú": 14.6, "Ù": 14.6, "Û": 14.6, "Ý": 11.28, "«": 12.98,
+  "»": 13.36, "„": 8.56, "“": 8.24, "”": 8.56, "‚": 4.78, "‘": 5.34,
+  "’": 6.08, "–": 14.04, "—": 18.7, "…": 14.18, "·": 4, "°": 8.24,
+  "€": 14.26, "§": 10, "µ": 11.523,
+};
+
+/** Excalidraws Innenabstand für in Formen gebundenen Text (px). */
+export const SCHAUBILD_TEXT_INNENABSTAND = 5;
+
+/**
+ * Glyphen-Vorschubbreiten der Normal-Schrift Nunito bei 20 px –
+ * EMPIRISCH per canvas.measureText erhoben (Chrome, 24.9.2026;
+ * Subsets des gepinnten Pakets mit Gewicht 500 registriert wie in
+ * der Bibliothek – deren Mess-Fallback für Nunito ist «Segoe UI
+ * Emoji» OHNE Xiaolai; für die 171 Tabellen-Glyphen liefert das
+ * LATIN-Subset alle Werte, der Fallback greift nie). Linearität über
+ * Schriftgrössen exakt (10/36 px Faktor 1.0000). ACHTUNG Kerning wie
+ * bei der Excalifont-Tabelle: Einzelglyphen-Summen liegen je nach
+ * Text bis zu ~3 % BREITER als die Browser-Zeilenmessung mit Kerning
+ * (empirisch −1,5 % bis −3,1 %, vereinzelt +0,3 %) – der Nachbau
+ * schätzt meist konservativ, Überlauf-Meldungen bleiben HINWEISE.
+ * Gleicher Glyphensatz wie die Excalifont-Tabelle; unbekannte
+ * Glyphen fallen auf die «m»-Breite zurück und werden als Hinweis
+ * gemeldet.
+ */
+export const SCHAUBILD_GLYPHBREITEN_NUNITO_20PX: Readonly<Record<string, number>> =
+  {
+  "0": 12, "1": 12, "2": 12, "3": 12, "4": 12, "5": 12,
+  "6": 12, "7": 12, "8": 12, "9": 12, " ": 5.22, "!": 4.66,
+  "\"": 8.1, "#": 12, "$": 12, "%": 18.66, "&": 14.02, "'": 4.52,
+  "(": 6.52, ")": 6.52, "*": 9.02, "+": 12, ",": 4.66, "-": 8.54,
+  ".": 4.66, "/": 5.8, ":": 4.66, ";": 4.66, "<": 12, "=": 12,
+  ">": 12, "?": 8.94, "@": 18.94, "A": 14.66, "B": 13.58, "C": 13.5,
+  "D": 14.94, "E": 11.72, "F": 11.02, "G": 14.58, "H": 15.28, "I": 5.24,
+  "J": 6.62, "K": 12.68, "L": 10.96, "M": 17.16, "N": 14.82, "O": 15.42,
+  "P": 12.74, "Q": 15.42, "R": 13.46, "S": 12.36, "T": 12.14, "U": 14.62,
+  "V": 13.88, "W": 22.08, "X": 13.1, "Y": 12.02, "Z": 11.86, "[": 6.48,
+  "\\": 5.8, "]": 6.48, "^": 12, "_": 10, "`": 7.22, "a": 10.66,
+  "b": 11.74, "c": 9.3, "d": 11.74, "e": 10.68, "f": 6.8, "g": 11.8,
+  "h": 11.44, "i": 4.74, "j": 4.82, "k": 10.16, "l": 6.02, "m": 17.22,
+  "n": 11.44, "o": 11.2, "p": 11.74, "q": 11.74, "r": 7.3, "s": 9.66,
+  "t": 7.16, "u": 11.3, "v": 10.36, "w": 16.88, "x": 10.6, "y": 10.34,
+  "z": 9.32, "{": 7.22, "|": 5.4, "}": 7.22, "~": 12, "Ä": 14.66,
+  "Ö": 15.42, "Ü": 14.62, "ä": 10.66, "ö": 11.2, "ü": 11.3, "ß": 12.48,
+  "á": 10.66, "à": 10.66, "â": 10.66, "ã": 10.66, "å": 10.66, "æ": 17.24,
+  "ç": 9.3, "é": 10.68, "è": 10.68, "ê": 10.68, "ë": 10.68, "í": 4.74,
+  "ì": 4.74, "î": 4.74, "ï": 4.74, "ñ": 11.44, "ó": 11.2, "ò": 11.2,
+  "ô": 11.2, "õ": 11.2, "ø": 11.2, "œ": 18.22, "Œ": 20.98, "ú": 11.3,
+  "ù": 11.3, "û": 11.3, "ý": 10.34, "ÿ": 10.34, "Á": 14.66, "À": 14.66,
+  "Â": 14.66, "Ã": 14.66, "Å": 14.66, "Æ": 19.68, "Ç": 13.5, "É": 11.72,
+  "È": 11.72, "Ê": 11.72, "Ë": 11.72, "Í": 5.24, "Ì": 5.24, "Î": 5.24,
+  "Ï": 5.24, "Ñ": 14.82, "Ó": 15.42, "Ò": 15.42, "Ô": 15.42, "Õ": 15.42,
+  "Ø": 15.42, "Ú": 14.62, "Ù": 14.62, "Û": 14.62, "Ý": 12.02, "«": 9.06,
+  "»": 9.06, "„": 8.1, "“": 8.1, "”": 8.1, "‚": 4.66, "‘": 4.66,
+  "’": 4.66, "–": 10, "—": 20, "…": 14, "·": 4.66, "°": 7.46,
+  "€": 12, "§": 11.02, "µ": 12
+};
+
+/** Glyphbreiten-Tabelle je Schriftfamilie (5 Excalifont, 6 Nunito). */
+export function schaubildGlyphbreiten(
+  fontFamily: number,
+): Readonly<Record<string, number>> {
+  return fontFamily === 6
+    ? SCHAUBILD_GLYPHBREITEN_NUNITO_20PX
+    : SCHAUBILD_GLYPHBREITEN_20PX;
+}
+
+/** Vorschubbreite eines Texts (eine Zeile) bei gegebener Schriftgrösse. */
+export function schaubildTextBreite(
+  text: string,
+  fontSize: number,
+  fontFamily = 5,
+): { breite: number; unbekannt: string[] } {
+  const tabelle = schaubildGlyphbreiten(fontFamily);
+  const unbekannt: string[] = [];
+  let breite = 0;
+  for (const zeichen of text) {
+    // Zeilenumbrüche sind Struktur, keine Glyphen – Breite 0, kein
+    // «unbekannt»-Hinweis (Aufrufer messen teils den ganzen Text).
+    if (zeichen === "\n") continue;
+    const b = tabelle[zeichen];
+    if (b === undefined) {
+      if (!unbekannt.includes(zeichen)) unbekannt.push(zeichen);
+      breite += tabelle.m;
+    } else {
+      breite += b;
+    }
+  }
+  return { breite: (breite * fontSize) / 20, unbekannt };
+}
+
+/**
+ * Zeilenumbruch-NACHBAU von Excalidraws wrapText (Greedy: Wörter +
+ * einzelne Leerzeichen als Tokens, Umbruchgelegenheit nach «-»,
+ * überlange Wörter zeichenweise hart) – gegen die echte Bibliothek
+ * empirisch ZEICHENGENAU verifiziert (drei Szenarien, 21.9.2026; der
+ * E2E-Test e2e-schaubild vergleicht Browser-Umbruch und diesen
+ * Nachbau weiter als Drift-Wächter für Excalidraw-Updates). Er speist
+ * die Überlauf-Prüfung der Übersetzungs-CI, die ohne Browser
+ * auskommen muss.
+ */
+export function schaubildWrap(
+  text: string,
+  maxWidth: number,
+  fontSize: number,
+  fontFamily = 5,
+): string {
+  const breiteVon = (s: string): number =>
+    schaubildTextBreite(s, fontSize, fontFamily).breite;
+  const zeilen: string[] = [];
+  for (const rohZeile of text.split("\n")) {
+    if (breiteVon(rohZeile) <= maxWidth) {
+      zeilen.push(rohZeile);
+      continue;
+    }
+    const tokens = rohZeile
+      .split(/(\s)/)
+      .filter(Boolean)
+      .flatMap((t) => (/\s/.test(t) ? [t] : t.split(/(?<=-)/)));
+    let aktuell = "";
+    let aktuellBreite = 0;
+    for (const token of tokens) {
+      const tokenBreite = breiteVon(token);
+      if (/^\s$/.test(token) || aktuellBreite + tokenBreite <= maxWidth) {
+        aktuell += token;
+        aktuellBreite += tokenBreite;
+        continue;
+      }
+      if (!aktuell) {
+        let stueck = "";
+        let stueckBreite = 0;
+        for (const zeichen of token) {
+          const zb = breiteVon(zeichen);
+          if (stueckBreite + zb > maxWidth && stueck) {
+            zeilen.push(stueck);
+            stueck = "";
+            stueckBreite = 0;
+          }
+          stueck += zeichen;
+          stueckBreite += zb;
+        }
+        aktuell = stueck;
+        aktuellBreite = stueckBreite;
+      } else {
+        zeilen.push(aktuell.trimEnd());
+        aktuell = token;
+        aktuellBreite = tokenBreite;
+      }
+    }
+    if (aktuell) zeilen.push(aktuell.trimEnd());
+  }
+  return zeilen.join("\n");
+}
+
+/** Nutzbare Textbreite in einem Container (Excalidraw-Formeln). */
+function schaubildContainerTextBreite(
+  container: SchaubildElement,
+  fontSize: number,
+): number {
+  const p2 = SCHAUBILD_TEXT_INNENABSTAND * 2;
+  switch (container.type) {
+    case "ellipse":
+      return container.width / Math.SQRT2 - p2;
+    case "diamond":
+      return container.width / 2 - p2;
+    case "arrow":
+      return Math.max(container.width * 0.7, fontSize * 11);
+    default:
+      return container.width - p2;
+  }
+}
+function schaubildContainerTextHoehe(container: SchaubildElement): number {
+  const p2 = SCHAUBILD_TEXT_INNENABSTAND * 2;
+  switch (container.type) {
+    case "ellipse":
+      return container.height / Math.SQRT2 - p2;
+    case "diamond":
+      return container.height / 2 - p2;
+    case "arrow":
+      // Pfeil-Labels liegen AUF dem Pfeil und «laufen» nie über –
+      // die Bibliothek wächst Pfeile nicht, und ein flacher Pfeil
+      // (height ~0) erzeugte sonst Dauer-Fehlalarme (Review-Fund).
+      return Infinity;
+    default:
+      return container.height - p2;
+  }
+}
+
+interface SchaubildBox {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/**
+ * Element-BBoxen einer Szene, wie sie NACH dem Player-Neuvermessen
+ * aussehen: Texte per schaubildWrap umbrochen, gebundene Container
+ * wachsen wie im Player-Post-Pass, Freitext wächst je nach autoResize
+ * in Breite bzw. Höhe. Rotation (angle) wird für die Hinweis-Rechnung
+ * bewusst ignoriert.
+ */
+interface SchaubildBefund {
+  /** Dedupe-Schlüssel: Befund-Art + betroffenes Element/Zeichen. */
+  schluessel: string;
+  text: string;
+}
+
+function schaubildBoxenNachUmbruch(szene: SchaubildSzene): {
+  boxen: SchaubildBox[];
+  befunde: SchaubildBefund[];
+} {
+  const befunde: SchaubildBefund[] = [];
+  const masse = new Map<string, { width: number; height: number }>();
+  for (const el of szene.elemente) {
+    masse.set(el.id, { width: el.width, height: el.height });
+  }
+  for (const el of szene.elemente) {
+    if (el.type !== "text") continue;
+    // ANZEIGE-Worst-Case messen: Die Plattform zeigt je Lehrplan ß
+    // oder ss an (Standard li = ss), und ss ist stets die BREITERE
+    // Form – einseitiges Falten ist darum konservativ korrekt für
+    // beide Orthografien (Review-Fund: der Player misst den
+    // gewandelten Text, die CI mass vorher den ß-Master).
+    const messText = el.text.replaceAll("ß", "ss");
+    const { unbekannt } = schaubildTextBreite(messText, el.fontSize, el.fontFamily);
+    if (unbekannt.length > 0) {
+      befunde.push({
+        schluessel: `glyphe|${unbekannt.join("")}`,
+        text: `Text "${schaubildKurzText(el.text)}": Zeichen ${unbekannt
+          .map((z) => `«${z}»`)
+          .join(", ")} fehlen in der Breiten-Tabelle - die Überlauf-Schätzung nutzt Ersatzbreiten (${el.fontFamily === 6 ? "SCHAUBILD_GLYPHBREITEN_NUNITO_20PX" : "SCHAUBILD_GLYPHBREITEN_20PX"} erweitern).`,
+      });
+    }
+    const zeilenHoehe = el.fontSize * el.lineHeight;
+    if (el.containerId !== null) {
+      const container = szene.elemente.find((k) => k.id === el.containerId);
+      if (!container) continue; // meldet das Schema
+      // UNGEMARGT umbrechen – exakt die Player-Formel (der Nachbau
+      // ist zeichengenau verifiziert); die ±0,5-%-Messunsicherheit
+      // fliesst nur in die MELDE-Schwelle unten ein, sonst erzeugte
+      // ein exakt passender Text Phantom-Umbrüche (Review-Fund).
+      const maxBreite = schaubildContainerTextBreite(container, el.fontSize);
+      const umbrochen = schaubildWrap(messText, maxBreite, el.fontSize, el.fontFamily);
+      const zeilen = umbrochen.split("\n");
+      const textHoehe = zeilen.length * zeilenHoehe;
+      const maxHoehe = schaubildContainerTextHoehe(container);
+      if (textHoehe > maxHoehe) {
+        befunde.push({
+          schluessel: `wachstum|${container.id}`,
+          text: `${container.type} "${container.id}": Der gebundene Text "${schaubildKurzText(
+            el.text,
+          )}" braucht umbrochen ca. ${Math.ceil(textHoehe)} px Höhe, der Kasten bietet ${Math.floor(
+            Math.max(0, maxHoehe),
+          )} px - der Player lässt den Kasten wachsen; prüfen, ob das Layout das verträgt (sonst Übersetzung kürzen oder Kasten im Editor vergrössern).`,
+        });
+        const m = masse.get(container.id)!;
+        const wachstum =
+          textHoehe + SCHAUBILD_TEXT_INNENABSTAND * 2 - container.height;
+        masse.set(container.id, {
+          width: m.width,
+          height: m.height + Math.max(0, wachstum),
+        });
+      }
+      const breiteste = Math.max(
+        ...zeilen.map((z) => schaubildTextBreite(z, el.fontSize, el.fontFamily).breite),
+      );
+      // Melde-Schwelle 2 % über der Kastenbreite (Messfehler ±0,5 %).
+      if (breiteste > maxBreite * 1.02) {
+        befunde.push({
+          schluessel: `wort|${container.id}`,
+          text: `${container.type} "${container.id}": Ein Wort in "${schaubildKurzText(
+            el.text,
+          )}" ist breiter als der Kasten (${Math.ceil(breiteste)} px > ${Math.floor(
+            maxBreite,
+          )} px) und ragt heraus - Übersetzung umformulieren oder Kasten verbreitern.`,
+        });
+      }
+      masse.set(el.id, {
+        width: Math.min(breiteste, maxBreite),
+        height: textHoehe,
+      });
+    } else {
+      const maxBreite = el.autoResize ? Infinity : el.width;
+      const umbrochen = el.autoResize
+        ? messText
+        : schaubildWrap(messText, maxBreite, el.fontSize, el.fontFamily);
+      const zeilen = umbrochen.split("\n");
+      const breite = Math.max(
+        ...zeilen.map((z) => schaubildTextBreite(z, el.fontSize, el.fontFamily).breite),
+      );
+      masse.set(el.id, {
+        width: el.autoResize ? breite : el.width,
+        height: zeilen.length * zeilenHoehe,
+      });
+    }
+  }
+  const boxen: SchaubildBox[] = szene.elemente
+    .filter((el) => !(el.type === "text" && el.containerId !== null))
+    .map((el) => {
+      const m = masse.get(el.id)!;
+      return { id: el.id, x1: el.x, y1: el.y, x2: el.x + m.width, y2: el.y + m.height };
+    });
+  return { boxen, befunde };
+}
+
+function schaubildKurzText(text: string): string {
+  const eineZeile = text.replace(/\n/g, " ");
+  return eineZeile.length > 30 ? eineZeile.slice(0, 30) + "…" : eineZeile;
+}
+
+/**
+ * Überlauf-Hinweise für eine ÜBERSETZTE Szene gegenüber ihrem Master:
+ * (a) gebundene Texte, die ihren Kasten sprengen (der Player lässt
+ * Kästen wachsen – gemeldet wird, DASS sie wachsen), (b) zu breite
+ * unbrechbare Wörter, (c) Element-Paare, die sich NACH dem Umbruch
+ * überlappen, im Master aber nicht (Pfeile passen sich nie an),
+ * (d) Glyphen ausserhalb der Breiten-Tabelle. Schätzung auf Basis der
+ * Glyphtabelle (±0,5 % Messfehler, 2 % Marge) – bewusst HINWEISE für
+ * das Gegenlesen, keine harten CI-Fehler.
+ */
+export function schaubildUeberlaufHinweise(
+  master: SchaubildSzene,
+  fassung: SchaubildSzene,
+): string[] {
+  const m = schaubildBoxenNachUmbruch(master);
+  const f = schaubildBoxenNachUmbruch(fassung);
+  // Nur melden, was die ÜBERSETZUNG verursacht: Befunde, die der
+  // Master (gleiches Element, gleiche Art) schon selbst hat, sind
+  // Autoren-Layoutfragen und erschienen sonst in JEDER Fassung
+  // dauerhaft (Review-Fund).
+  const masterBefunde = new Set(m.befunde.map((b) => b.schluessel));
+  const hinweise = f.befunde
+    .filter((b) => !masterBefunde.has(b.schluessel))
+    .map((b) => b.text);
+  const ueberlappt = (a: SchaubildBox, b: SchaubildBox): boolean =>
+    a.x1 < b.x2 - 2 && b.x1 < a.x2 - 2 && a.y1 < b.y2 - 2 && b.y1 < a.y2 - 2;
+  const masterPaare = new Set<string>();
+  for (let i = 0; i < m.boxen.length; i++) {
+    for (let j = i + 1; j < m.boxen.length; j++) {
+      if (ueberlappt(m.boxen[i], m.boxen[j])) {
+        masterPaare.add(`${m.boxen[i].id}|${m.boxen[j].id}`);
+      }
+    }
+  }
+  for (let i = 0; i < f.boxen.length; i++) {
+    for (let j = i + 1; j < f.boxen.length; j++) {
+      const schluessel = `${f.boxen[i].id}|${f.boxen[j].id}`;
+      if (ueberlappt(f.boxen[i], f.boxen[j]) && !masterPaare.has(schluessel)) {
+        hinweise.push(
+          `Elemente "${f.boxen[i].id}" und "${f.boxen[j].id}" überlappen sich nach der Übersetzung (im Master nicht) - Layout prüfen, Übersetzung kürzen oder die Elemente im Editor auseinanderrücken.`,
+        );
+      }
+    }
+  }
+  return hinweise;
+}
+
+/* ---------------------------------------------------------------------------
+ * Schaubild-Standard: Kontrast + Schriftwahl (24.9.2026, Betreiber-
+ * Freigabe «weich»)
+ *
+ * KONTRAST ist Pflicht (FEHLER in beiden Validierern): Jedes
+ * Text-Hintergrund-Paar einer Szene braucht mindestens 4,5:1
+ * (WCAG AA) – geprüft im HELLEN und im DUNKLEN Modus. Der dunkle
+ * Modus ist exakt vorhersagbar: exportWithDarkMode legt den
+ * CSS-Filter invert(93%) hue-rotate(180deg) über das SVG; die
+ * sRGB-Matrix dazu ist implementiert und wurde per Pixel-Probe am
+ * echten Render bestätigt (24.9.2026). Der SEITENGRUND (für freie
+ * Texte ohne gefüllte Form dahinter) ist NICHT Teil des SVGs und
+ * wird darum nicht mitgefiltert – er kommt als App-Theme-Konstante
+ * (hell bg-surface, dunkel gemessen; bei Theme-Änderungen hier
+ * nachziehen).
+ *
+ * SCHRIFT ist eine WEICHE Regel (HINWEIS, kein Fehler): Standard für
+ * Schaubild-Texte ist die Normal-Schrift (fontFamily 6/Nunito);
+ * die Handschrift (5) bleibt für bewusst skizzenhafte Akzente
+ * erlaubt und wird nur gemeldet.
+ * ------------------------------------------------------------------------ */
+
+/** Seitengrund der Modulseite (App-Theme bg-surface, hell). */
+export const SCHAUBILD_SEITENGRUND_HELL = "#f7f7f5";
+/** Seitengrund der Modulseite im dunklen Modus (am Render gemessen). */
+export const SCHAUBILD_SEITENGRUND_DUNKEL = "#191c19";
+/** WCAG-AA-Schwelle für normalen Text. */
+export const SCHAUBILD_KONTRAST_MINDEST = 4.5;
+
+function schaubildFarbwert(
+  wert: string,
+): { rgb: [number, number, number]; alpha: number } | null {
+  const m = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(wert.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length <= 4) h = [...h].map((z) => z + z).join("");
+  const teil = (i: number): number => parseInt(h.slice(i, i + 2), 16);
+  return {
+    rgb: [teil(0), teil(2), teil(4)],
+    alpha: h.length === 8 ? teil(6) / 255 : 1,
+  };
+}
+
+function relativeLuminanz(rgb: [number, number, number]): number {
+  const f = (v: number): number => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]);
+}
+
+/** WCAG-Kontrastverhältnis zweier Hex-Farben (null bei Nicht-Hex). */
+export function schaubildKontrast(a: string, b: string): number | null {
+  const ra = schaubildFarbwert(a);
+  const rb = schaubildFarbwert(b);
+  if (!ra || !rb) return null;
+  const la = relativeLuminanz(ra.rgb);
+  const lb = relativeLuminanz(rb.rgb);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Farbe unter dem Dark-Mode-Filter des Schaubild-Renderers
+ * (invert(93%) + hue-rotate(180deg) als sRGB-Matrix nach
+ * Filter-Effects-Spez, cos=−1/sin=0) – per Pixel-Probe am echten
+ * Render exakt bestätigt (24.9.2026).
+ */
+export function schaubildDunkelFarbe(hex: string): string | null {
+  const parsed = schaubildFarbwert(hex);
+  if (!parsed) return null;
+  const inv = parsed.rgb.map((c) => 0.93 * (255 - c) + 0.07 * c) as [
+    number,
+    number,
+    number,
+  ];
+  const m = [
+    [-0.574, 1.43, 0.144],
+    [0.426, 0.43, 0.144],
+    [0.426, 1.43, -0.856],
+  ];
+  const klemm = (v: number): number => Math.max(0, Math.min(255, Math.round(v)));
+  const [r, g, b] = [0, 1, 2].map((i) =>
+    klemm(m[i][0] * inv[0] + m[i][1] * inv[1] + m[i][2] * inv[2]),
+  );
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Excalidraws Schleifen-Kriterium: line/freedraw werden NUR gefüllt,
+ * wenn der Pfad geschlossen ist (Abstand Anfang↔Ende ≤ 8 px,
+ * LINE_CONFIRM_THRESHOLD – Chunk-Empirie 0.18.1; Review-Fund: offene
+ * Polylinien mit backgroundColor rendern UNGEFÜLLT).
+ */
+function schaubildPfadGeschlossen(
+  points: ReadonlyArray<readonly number[]>,
+): boolean {
+  if (points.length < 3) return false;
+  const a = points[0];
+  const z = points[points.length - 1];
+  return Math.hypot(a[0] - z[0], a[1] - z[1]) <= 8;
+}
+
+/** Liegt der Punkt in der (unrotierten) Form? line/freedraw nur als geschlossene Schleife. */
+function schaubildPunktInForm(
+  el: SchaubildElement,
+  px: number,
+  py: number,
+): boolean {
+  if (el.type === "rectangle") {
+    return px >= el.x && px <= el.x + el.width && py >= el.y && py <= el.y + el.height;
+  }
+  if (el.type === "ellipse") {
+    const dx = (px - (el.x + el.width / 2)) / (el.width / 2);
+    const dy = (py - (el.y + el.height / 2)) / (el.height / 2);
+    return dx * dx + dy * dy <= 1;
+  }
+  if (el.type === "diamond") {
+    const dx = Math.abs(px - (el.x + el.width / 2)) / (el.width / 2);
+    const dy = Math.abs(py - (el.y + el.height / 2)) / (el.height / 2);
+    return dx + dy <= 1;
+  }
+  if (
+    (el.type === "line" || el.type === "freedraw") &&
+    schaubildPfadGeschlossen(el.points)
+  ) {
+    let innen = false;
+    const pts = el.points;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = el.x + pts[i][0];
+      const yi = el.y + pts[i][1];
+      const xj = el.x + pts[j][0];
+      const yj = el.y + pts[j][1];
+      if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+        innen = !innen;
+      }
+    }
+    return innen;
+  }
+  return false;
+}
+
+type SchaubildGrund =
+  | { art: "farbe"; farbe: string; quelle: string }
+  | { art: "unpruefbar"; grund: string; quelle: string }
+  | { art: "seite" };
+
+/**
+ * Oberste relevante Form UNTER dem Punkt: nur Elemente VOR dem Text in
+ * der Z-Ordnung (Array-Reihenfolge – eine Form ÜBER dem Text ist nie
+ * sein Hintergrund, Review-Fund); der letzte Treffer gewinnt und
+ * ÜBERSCHREIBT auch einen früheren unpruefbar-Befund (Review-Fund:
+ * deckende Form über hachure). Gefüllte ROTIERTE Formen sind nicht
+ * zuverlässig prüfbar → unpruefbar statt still übersprungen.
+ */
+function schaubildGrundUnterPunkt(
+  elemente: ReadonlyArray<SchaubildElement>,
+  bisIndex: number,
+  px: number,
+  py: number,
+): SchaubildGrund {
+  let ergebnis: SchaubildGrund = { art: "seite" };
+  for (let i = 0; i < bisIndex; i++) {
+    const el = elemente[i];
+    if (el.type === "text" || el.type === "arrow") continue;
+    const fuellung = schaubildFarbwert(el.backgroundColor);
+    if (!fuellung) continue; // transparent: Grund darunter bleibt sichtbar
+    if (!schaubildPunktInForm(el, px, py)) continue;
+    const quelle = `Form "${el.id}"`;
+    if (el.angle !== 0) {
+      ergebnis = { art: "unpruefbar", grund: `rotiert (angle ${el.angle})`, quelle };
+    } else if (el.fillStyle !== "solid" || el.opacity !== 100 || fuellung.alpha < 1) {
+      ergebnis = {
+        art: "unpruefbar",
+        grund: `${el.fillStyle}/${el.opacity}${fuellung.alpha < 1 ? "/alpha" : ""}`,
+        quelle,
+      };
+    } else {
+      ergebnis = { art: "farbe", farbe: el.backgroundColor, quelle };
+    }
+  }
+  return ergebnis;
+}
+
+export interface SchaubildStandardBefunde {
+  fehler: string[];
+  hinweise: string[];
+}
+
+/**
+ * Standard-Prüfung einer Szene: Kontrast (FEHLER unter 4,5:1, in hell
+ * UND dunkel) + weiche Schrift-Regel (HINWEIS bei Handschrift).
+ * Hintergrund eines Texts: die deckende Voll-Füllung seines Containers;
+ * hat der Container keine (Pfeil-Label, transparenter Container) oder
+ * ist der Text frei, zählt die OBERSTE deckend gefüllte Form unter der
+ * Text-Mitte (nur Formen VOR dem Text in der Z-Ordnung; geschlossene
+ * line-/freedraw-Schleifen füllen wie Polygone) – sonst
+ * `szene.hintergrund` (rendert als SVG-Fläche und wird im Dunkelmodus
+ * MITGEFILTERT) bzw. der Seitengrund. Nicht zuverlässig prüfbar
+ * (→ HINWEIS statt Fehler): nicht-deckende Füllungen (hachure/
+ * cross-hatch, Teil-Deckkraft, Alpha), rotierte gefüllte Formen und
+ * Texte mit eigener Teil-Deckkraft.
+ */
+export function schaubildStandardBefunde(
+  szene: SchaubildSzene,
+): SchaubildStandardBefunde {
+  const fehler: string[] = [];
+  const hinweise: string[] = [];
+  const handschrift: string[] = [];
+  const hintergrund =
+    szene.hintergrund !== undefined && schaubildFarbwert(szene.hintergrund)
+      ? szene.hintergrund
+      : null;
+  szene.elemente.forEach((el, index) => {
+    if (el.type !== "text") return;
+    if (el.fontFamily === 5) handschrift.push(el.id);
+
+    const textFarbe = schaubildFarbwert(el.strokeColor);
+    if (!textFarbe) {
+      hinweise.push(
+        `Text "${el.id}": Farbe "${el.strokeColor}" ist kein Hex-Wert - Kontrast nicht prüfbar.`,
+      );
+      return;
+    }
+    if (el.opacity !== 100 || textFarbe.alpha < 1) {
+      hinweise.push(
+        `Text "${el.id}": Teil-Deckkraft (${el.opacity}${textFarbe.alpha < 1 ? "/alpha" : ""}) - der Text mischt sich mit dem Grund, Kontrast nicht zuverlässig prüfbar; volle Deckkraft verwenden.`,
+      );
+      return;
+    }
+
+    const cx = el.x + el.width / 2;
+    const cy = el.y + el.height / 2;
+    let grund: SchaubildGrund | null = null;
+    if (el.containerId !== null) {
+      const container = szene.elemente.find((k) => k.id === el.containerId);
+      if (!container) return; // meldet das Schema
+      const fuellung =
+        container.type === "arrow" ? null : schaubildFarbwert(container.backgroundColor);
+      if (fuellung) {
+        if (
+          container.fillStyle !== "solid" ||
+          container.opacity !== 100 ||
+          fuellung.alpha < 1
+        ) {
+          grund = {
+            art: "unpruefbar",
+            grund: `${container.fillStyle}/${container.opacity}${fuellung.alpha < 1 ? "/alpha" : ""}`,
+            quelle: `Container "${container.id}"`,
+          };
+        } else if (container.angle !== 0) {
+          grund = {
+            art: "unpruefbar",
+            grund: `rotiert (angle ${container.angle})`,
+            quelle: `Container "${container.id}"`,
+          };
+        } else {
+          grund = {
+            art: "farbe",
+            farbe: container.backgroundColor,
+            quelle: `Container "${container.id}"`,
+          };
+        }
+      }
+      // Pfeil-Label oder TRANSPARENTER Container: Der echte Grund liegt
+      // DARUNTER (Review-Fund - z. B. transparente Hilfsboxen auf
+      // gefüllten Karten in wp-19); grund bleibt null → Form-Suche.
+    }
+    if (grund === null) {
+      grund = schaubildGrundUnterPunkt(szene.elemente, index, cx, cy);
+    }
+
+    if (grund.art === "unpruefbar") {
+      hinweise.push(
+        `Text "${el.id}": Kontrast auf ${grund.quelle} nicht zuverlässig prüfbar (${grund.grund}) - deckende, unrotierte Voll-Füllung ("solid", Deckkraft 100) verwenden oder Farbe manuell prüfen.`,
+      );
+      return;
+    }
+
+    const hellGrund =
+      grund.art === "farbe"
+        ? grund.farbe
+        : (hintergrund ?? SCHAUBILD_SEITENGRUND_HELL);
+    const dunkelGrund =
+      grund.art === "farbe"
+        ? schaubildDunkelFarbe(grund.farbe)
+        : hintergrund
+          ? schaubildDunkelFarbe(hintergrund)
+          : SCHAUBILD_SEITENGRUND_DUNKEL;
+    const quelle =
+      grund.art === "farbe"
+        ? grund.quelle
+        : hintergrund
+          ? "Szenen-Hintergrund"
+          : "Seitengrund";
+    const dunkelText = schaubildDunkelFarbe(el.strokeColor);
+    const kHell = schaubildKontrast(el.strokeColor, hellGrund);
+    const kDunkel =
+      dunkelText !== null && dunkelGrund !== null
+        ? schaubildKontrast(dunkelText, dunkelGrund)
+        : null;
+    if (kHell === null || kDunkel === null) return; // Hex oben geprüft
+    // ABGERUNDET anzeigen (floor) - «4.50:1 unter mindestens 4,5»
+    // wäre widersinnig (Review-Fund bei 4,4981).
+    const rund = (v: number): string => (Math.floor(v * 100) / 100).toFixed(2);
+    if (kHell < SCHAUBILD_KONTRAST_MINDEST || kDunkel < SCHAUBILD_KONTRAST_MINDEST) {
+      fehler.push(
+        `Text "${el.id}" (${el.strokeColor} auf ${quelle} ${hellGrund}): Kontrast hell ${rund(kHell)}:1, dunkel ${rund(kDunkel)}:1 - mindestens ${SCHAUBILD_KONTRAST_MINDEST}:1 in BEIDEN Modi noetig (WCAG AA).`,
+      );
+    }
+  });
+  if (handschrift.length > 0) {
+    hinweise.push(
+      `Handschrift (fontFamily 5) bei: ${handschrift.join(", ")} - Standard fuer Schaubild-Texte ist die Normal-Schrift (6/Nunito); bewusst skizzenhafte Akzente duerfen bleiben.`,
+    );
+  }
+  return { fehler, hinweise };
+}
+
+/**
+ * Schaubild als Daten (NEU seit 21.9.2026): gestaltetes Schaubild im
+ * Handzeichnungs-Stil als eingebettete Excalidraw-Szene – der Player
+ * rendert lokal (gepinnte Bibliothek + selbst gehostete Schriften,
+ * kein CDN); die Übersetzungs-Ableitung übersetzt AUSSCHLIESSLICH die
+ * Textinhalte der Elemente (uebersetzung/felder.ts), Koordinaten,
+ * Grössen und Struktur sind invariant. Kein prüfender Block.
+ * ROLLOUT: Für ältere Player ist "schaubild" ein unbekannter Blocktyp
+ * (unknownBlockSchema-Platzhalter) – Module bleiben dort gültig.
+ */
+export const schaubildBlockSchema = z.strictObject({
+  ...blockBase,
+  type: z.literal("schaubild"),
+  /**
+   * Die Excalidraw-Szene: eingefügt wird der Editor-Export (das
+   * transform verschlankt automatisch auf das kanonische Format);
+   * gespeichert und verglichen wird IMMER die verschlankte Form – der
+   * Content-Validator verlangt sie zusätzlich byteweise in der Datei
+   * (Kanonizität, npm run schaubild-verschlanken im Content-Repo).
+   */
+  szene: z.unknown().transform((roh, ctx) => {
+    const erg = verschlankeSchaubildSzene(roh);
+    if ("fehler" in erg) {
+      ctx.addIssue({ code: "custom", message: `Schaubild: ${erg.fehler}` });
+      return z.NEVER;
+    }
+    const geprueft = schaubildSzeneSchema.safeParse(erg.szene);
+    if (!geprueft.success) {
+      for (const issue of geprueft.error.issues.slice(0, 8)) {
+        ctx.addIssue({
+          code: "custom",
+          path: issue.path as (string | number)[],
+          message: issue.message,
+        });
+      }
+      return z.NEVER;
+    }
+    return geprueft.data;
+  }),
+  /**
+   * Pflicht-Textbeschreibung des Schaubilds (reiner Text): Alt-Text
+   * für Screenreader, Vorlese-Quelle und ehrlicher Fallback, wenn das
+   * Rendern scheitert. Wird mitübersetzt.
+   */
+  beschreibung: z.string().trim().min(1).max(2000),
+  /**
+   * Quelle/Lizenz-Nachweis (optional, seit 22.9.2026): Pflicht, wenn
+   * das Schaubild ein ABGELEITETES Werk ist (Nachzeichnung einer
+   * fremden Vorlage – die Namensnennung der Vorlage wandert hierher,
+   * wie beim image-Block); bei eigenen Grafiken dient es der
+   * Provenienz. Wird NIE übersetzt (blocks[].credit ist invariant).
+   */
+  credit: z.string().trim().min(1).max(300).optional(),
+});
+
+/* ---------------------------------------------------------------------------
+ * Modul-Querverweise [[modul:<slug>]] (22.9.2026)
+ *
+ * Feste Modul-Verweise («siehe Modul 7», Titel-Nennungen) brechen, sobald
+ * ein Lehrplan anders nummeriert, ein Titel sich ändert oder eine
+ * Sprachfassung gezeigt wird. Die Verweis-Syntax nennt darum die STABILE
+ * Modul-Kennung (den Ordner-Slug); der Player löst sie beim Anzeigen auf:
+ * aktueller Titel in der Sprache der gezeigten Fassung, plus Link – nur
+ * wenn das Zielmodul im gewählten Lehrplan existiert (sonst reiner Text,
+ * nie ein toter Link). In Schaubild-/Diagramm-Texten (keine Links erlaubt)
+ * erscheint nur der aufgelöste Titel.
+ *
+ * ÜBERSETZUNG: Die Syntax ist invariant – Fassungen übernehmen jeden
+ * Verweis ZEICHENGLEICH (die Übersetzungs-CI prüft die Erhaltung), nur der
+ * umgebende Text wird übersetzt. Aufgelöst wird erst im Player.
+ *
+ * ERLAUBTE FELDER: nur didaktischer Fliesstext (Whitelist in
+ * modulVerweisErlaubtInPfad). In Titeln, Metadaten, captions und
+ * Antwort-Material (Lücken-Antworten, Bausteine, Zuordnungs-Elemente …)
+ * sind Verweise verboten – dort renderten viele Flächen die rohe Syntax
+ * bzw. zerbrächen Antwort-Vergleiche. Beide Validierer erzwingen das und
+ * melden Verweise auf nicht existierende Slugs als FEHLER.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Ein Verweis: [[modul:<slug>]] – Slug wie der Modul-Ordnername.
+ * BEWUSST minimal enger als die Modul-id-Regel (kein Bindestrich am
+ * Ende): Ein hypothetischer Slug «…-» wäre unreferenzierbar – kein
+ * realer Ordner endet so, und neue sollten es auch nicht (der
+ * Verweis liefe sonst ins Syntax-Fehler-Netz).
+ */
+export const MODUL_VERWEIS_MUSTER =
+  /\[\[modul:([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\]\]/g;
+
+/** Alle referenzierten Slugs eines Texts (Reihenfolge erhalten, mit Duplikaten). */
+export function extrahiereModulVerweise(text: string): string[] {
+  const slugs: string[] = [];
+  for (const treffer of text.matchAll(MODUL_VERWEIS_MUSTER)) {
+    slugs.push(treffer[1]);
+  }
+  return slugs;
+}
+
+/**
+ * Ersetzt jeden Verweis durch den aufgelösten Titel (EIN Durchlauf,
+ * Funktions-Replacement – eingesetzte Titel werden nie erneut gescannt
+ * und $-Sequenzen nie interpretiert). Liefert der Auflöser null
+ * (unbekanntes Ziel, z. B. in lokal eingeladenen Modulen), bleibt als
+ * ehrlicher Fallback der nackte Slug stehen.
+ */
+export function ersetzeModulVerweise(
+  text: string,
+  aufloeser: (slug: string) => string | null,
+): string {
+  return text.replace(MODUL_VERWEIS_MUSTER, (_alles, slug: string) => {
+    return aufloeser(slug) ?? slug;
+  });
+}
+
+/**
+ * Anzeige-Form eines aufgelösten Verweises: Der Modultitel steht als
+ * Werktitel in den Anführungszeichen der ANZEIGE-Sprache («…» bei
+ * Deutsch, “…” sonst) – lange Titel mit Doppelpunkt blieben mitten im
+ * Satz sonst unlesbar. Player UND Überlauf-Messung der Übersetzungs-CI
+ * nutzen dieselbe Funktion (gemessen wird exakt die Anzeige).
+ */
+export function modulVerweisAnzeige(titel: string, sprache: string): string {
+  return sprache.split("-")[0].toLowerCase() === "de"
+    ? `«${titel}»`
+    : `\u201C${titel}\u201D`;
+}
+
+/**
+ * Unvollständige/verschriebene Verweis-Syntax («[[modul: slug]]»,
+ * Grossschreibung, vergessene Klammer): jedes «[[modul:»-Vorkommen, das
+ * nicht exakt dem Muster entspricht, ist ein Autorenfehler – beide
+ * Validierer melden ihn, statt dass die Rohsyntax still im Player landet.
+ */
+export function modulVerweisSyntaxFehler(text: string): string | null {
+  // Roh-Zähler bewusst breiter als das Muster: fängt auch Leerraum um
+  // «modul»/Doppelpunkt und den englischen Tippfehler «module» (die
+  // en-Fassungen tragen die Syntax zeichengleich, en-Autoren liefern zu).
+  const roh = text.match(/\[\[\s*module?\s*:/gi)?.length ?? 0;
+  if (roh === 0) return null;
+  const gueltig = extrahiereModulVerweise(text).length;
+  if (roh === gueltig) return null;
+  return `enthält ${roh - gueltig}× unvollständige Verweis-Syntax („[[modul:…“) – erwartet wird exakt [[modul:<slug>]] (Kleinbuchstaben/Ziffern/Bindestriche, beide Doppelklammern, kein Leerraum, kein „module“).`;
+}
+
+/**
+ * Whitelist der Felder, in denen [[modul:<slug>]] erlaubt ist – normierte
+ * Pfade wie in der Übersetzungs-Feldliste (Array-Indizes als []). Beide
+ * Validierer prüfen dagegen; alles andere lehnt die Prüfung ab.
+ */
+const MODUL_VERWEIS_ERLAUBTE_PFADE: ReadonlyArray<RegExp> = [
+  /^learningObjectives\[\]$/,
+  /^blocks\[\]\.body$/,
+  /^blocks\[\]\.intro$/,
+  /^blocks\[\]\.text$/, // Lückentext-Fliesstext (nie die Antworten)
+  /^blocks\[\]\.beschreibung$/, // schaubild/diagramm – nur Titel, kein Link
+  /^blocks\[\]\.definition$/, // diagramm-Labels – nur Titel, kein Link
+  /^blocks\[\]\.szene\.elemente\[\]\.text$/, // schaubild – nur Titel
+  /^blocks\[\]\.tasks\[\]\.(prompt|hint|solution)$/,
+  /^blocks\[\]\.questions\[\]\.(prompt|explanation)$/,
+  /^blocks\[\]\.questions\[\]\.options\[\]\.text$/,
+  // Simulations-Abschlussfrage: derselbe Feldbau wie questions[] und
+  // dieselbe Quiz-Komponente im Player – gleiche Rechte.
+  /^blocks\[\]\.abschlussfrage\.(prompt|explanation)$/,
+  /^blocks\[\]\.abschlussfrage\.options\[\]\.text$/,
+  /^blocks\[\]\.knoten\[\]\.(text|auswertung)$/,
+  /^blocks\[\]\.aufgaben\[\]\.prompt$/, // numerisch/term-Teilaufgaben
+  /^blocks\[\]\.varianten\[\]\.text$/,
+  /^blocks\[\]\.varianten\[\]\.intro$/,
+  /^blocks\[\]\.varianten\[\]\.aufgaben\[\]\.prompt$/,
+];
+
+export function modulVerweisErlaubtInPfad(pfad: string): boolean {
+  const normiert = pfad.replace(/\[\d+\]/g, "[]");
+  return MODUL_VERWEIS_ERLAUBTE_PFADE.some((m) => m.test(normiert));
+}
+
+/**
+ * Selbst-/Fremdeinschätzungs-Block des Kompetenz-Spinnennetzes
+ * (26.9.2026, additiv – Schema-Version bleibt 3; ältere Player zeigen
+ * den Unbekannt-Platzhalter, Module bleiben gültig): je referenzierter
+ * Teilkompetenz-Kennung ein stufenloser Regler (0–100), Speichern
+ * hängt Einschätzungs-Datenpunkte an die Belegspur an. Der Block trägt
+ * BEWUSST keinen eigenen Text je Kennung – angezeigt werden Name und
+ * Beschreibung aus dem Register (kompetenzen/teilkompetenzen.json):
+ * EINE Wahrheit für Regler-Beschriftung und Netz-Achse, und das
+ * Übersetzungs-System braucht keine neuen Feldpfade. Nicht prüfend
+ * (keine Punkte, keine Coins); zählt beim Speichern als «bearbeitet».
+ */
+export const einschaetzungBlockSchema = z
+  .strictObject({
+    ...blockBase,
+    type: z.literal("einschaetzung"),
+    /** Erklärtext über den Reglern (Markdown, optional). */
+    intro: markdown.optional(),
+  })
+  .superRefine((block, ctx) => {
+    if (!block.id) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["id"],
+        message:
+          'Einschätzung: Der Block braucht eine stabile "id" (z. B. "selbst-lernen") – daran hängen Bearbeitet-Merker und Datenpunkt-Bezüge.',
+      });
+    } else if (block.id === "quiz") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["id"],
+        message:
+          'Einschätzung: Die id "quiz" ist für Quizblöcke reserviert – bitte eine andere id wählen.',
+      });
+    }
+    if (!block.teilkompetenzen || block.teilkompetenzen.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["teilkompetenzen"],
+        message:
+          "Einschätzung: Der Block braucht mindestens eine Teilkompetenz-Kennung aus dem Register – sie IST der Inhalt (Regler-Beschriftung kommt aus dem Register).",
+      });
+    }
+  });
+
+/**
+ * EXPERIMENTELLER KI-Interview-Block (26.9.2026, additiv – Schema
+ * bleibt 3): Die lokale KI stellt gezielte Fragen zu den referenzierten
+ * Teilkompetenzen und erzeugt daraus Einschätzungs-Datenpunkte mit
+ * Quelle "ki" und Status "unbestaetigt" – samt GESPRÄCHSVERLAUF, damit
+ * die Lehrperson die Grundlage prüfen kann; nichts zählt, bevor sie
+ * übernimmt. Für Lernende ist der Block unmissverständlich als
+ * Einschätzungs-Aufgabe gekennzeichnet, deren Verlauf an die
+ * Lehrperson geht – klar getrennt von Cate als privatem Lernpartner
+ * (eigener Rollen-Prompt, KEIN Zugriff auf Cate-Gespräche). Zulässig
+ * sind NUR kognitive bzw. lernbezogene Indikatoren: Das Register
+ * kennzeichnet sie mit `interview: true`, die Build-Validierer beider
+ * Repos prüfen das (nicht dieses Schema – es kennt das Register nicht).
+ */
+export const interviewBlockSchema = z
+  .strictObject({
+    ...blockBase,
+    type: z.literal("interview"),
+    /** Erklärtext über dem Interview (Markdown, optional). */
+    intro: markdown.optional(),
+    /** Skriptiertes Gerüst: Leitfragen als Einstieg und Rückfallebene
+     *  der KI-Fragen (mindestens eine). */
+    leitfragen: z.array(z.string().trim().min(1).max(300)).min(1).max(8),
+  })
+  .superRefine((block, ctx) => {
+    if (!block.id) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["id"],
+        message:
+          'Interview: Der Block braucht eine stabile "id" – daran hängen Bearbeitet-Merker und Datenpunkt-Bezüge.',
+      });
+    } else if (block.id === "quiz") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["id"],
+        message:
+          'Interview: Die id "quiz" ist für Quizblöcke reserviert – bitte eine andere id wählen.',
+      });
+    }
+    if (!block.teilkompetenzen || block.teilkompetenzen.length === 0) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["teilkompetenzen"],
+        message:
+          "Interview: Der Block braucht mindestens eine Teilkompetenz-Kennung (im Register mit interview: true gekennzeichnet).",
+      });
+    }
+  });
+
 export const knownBlockSchema = z.discriminatedUnion("type", [
   textBlockSchema,
   imageBlockSchema,
@@ -2696,6 +4623,10 @@ export const knownBlockSchema = z.discriminatedUnion("type", [
   termBlockSchema,
   planspielBlockSchema,
   simulationBlockSchema,
+  diagrammBlockSchema,
+  schaubildBlockSchema,
+  einschaetzungBlockSchema,
+  interviewBlockSchema,
 ]);
 
 export const KNOWN_BLOCK_TYPES = [
@@ -2712,6 +4643,10 @@ export const KNOWN_BLOCK_TYPES = [
   "term",
   "planspiel",
   "simulation",
+  "diagramm",
+  "schaubild",
+  "einschaetzung",
+  "interview",
 ] as const;
 
 /**
@@ -2953,6 +4888,10 @@ export type PlanspielBlock = z.infer<typeof planspielBlockSchema>;
 export type SimulationAntwort = z.infer<typeof simulationAntwortSchema>;
 export type SimulationKnoten = z.infer<typeof simulationKnotenSchema>;
 export type SimulationBlock = z.infer<typeof simulationBlockSchema>;
+export type DiagrammBlock = z.infer<typeof diagrammBlockSchema>;
+export type SchaubildBlock = z.infer<typeof schaubildBlockSchema>;
+export type EinschaetzungBlock = z.infer<typeof einschaetzungBlockSchema>;
+export type InterviewBlock = z.infer<typeof interviewBlockSchema>;
 export type KnownBlock = z.infer<typeof knownBlockSchema>;
 export type UnknownBlock = z.infer<typeof unknownBlockSchema>;
 export type Block = z.infer<typeof blockSchema>;

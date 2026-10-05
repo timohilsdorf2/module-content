@@ -414,85 +414,85 @@
  },
  "en.hoeren.hoertexte-videos-verstehen-a2": {
   "name": {
-   "de": "Ich kann kurze englische Hörtexte und Videos zu vertrauten Themen verstehen.",
-   "en": "I can understand short English audio texts and videos about familiar topics."
+   "de": "A2: Ich kann kurze englische Hörtexte und Videos zu vertrauten Themen verstehen.",
+   "en": "A2: I can understand short English audio texts and videos about familiar topics."
   },
   "fachbereich": "en"
  },
  "en.hoeren.gespraeche-verstehen-a1": {
   "name": {
-   "de": "Ich kann ein kurzes, einfaches Gespräch auf Englisch verstehen.",
-   "en": "I can understand a short, simple conversation in English."
+   "de": "A1: Ich kann ein kurzes, einfaches Gespräch auf Englisch verstehen.",
+   "en": "A1: I can understand a short, simple conversation in English."
   },
   "fachbereich": "en"
  },
  "en.lesen.sachtexte-verstehen-a2": {
   "name": {
-   "de": "Ich kann kurzen englischen Sachtexten die Hauptinformationen entnehmen.",
-   "en": "I can pick out the main information from short English factual texts."
+   "de": "A2: Ich kann kurzen englischen Sachtexten die Hauptinformationen entnehmen.",
+   "en": "A2: I can pick out the main information from short English factual texts."
   },
   "fachbereich": "en"
  },
  "en.schreiben.texte-verfassen-a2": {
   "name": {
-   "de": "Ich kann kurze zusammenhängende Texte auf Englisch über vertraute Themen schreiben und meine Meinung begründen.",
-   "en": "I can write short connected English texts about familiar topics and give reasons for my opinion."
+   "de": "A2: Ich kann kurze zusammenhängende Texte auf Englisch über vertraute Themen schreiben und meine Meinung begründen.",
+   "en": "A2: I can write short connected English texts about familiar topics and give reasons for my opinion."
   },
   "fachbereich": "en"
  },
  "en.schreiben.textbausteine-zuordnen-a2": {
   "name": {
-   "de": "Ich kann die Bausteine einer englischen Review erkennen und typische Wendungen richtig einsetzen.",
-   "en": "I can recognise the building blocks of an English review and use typical phrases correctly."
+   "de": "A2: Ich kann die Bausteine einer englischen Review erkennen und typische Wendungen richtig einsetzen.",
+   "en": "A2: I can recognise the building blocks of an English review and use typical phrases correctly."
   },
   "fachbereich": "en"
  },
  "en.schreiben.sich-vorstellen-a1": {
   "name": {
-   "de": "Ich kann mich auf Englisch in einfachen Sätzen schriftlich vorstellen.",
-   "en": "I can introduce myself in writing in simple English sentences."
+   "de": "A1: Ich kann mich auf Englisch in einfachen Sätzen schriftlich vorstellen.",
+   "en": "A1: I can introduce myself in writing in simple English sentences."
   },
   "fachbereich": "en"
  },
  "en.wortschatz.themenwortschatz-anwenden-a2": {
   "name": {
-   "de": "Ich kann englischen Themenwortschatz verstehen und anwenden – zum Beispiel zu Musik und Konzerten.",
-   "en": "I can understand and use English topic vocabulary – for example about music and concerts."
+   "de": "A2: Ich kann englischen Themenwortschatz verstehen und anwenden – zum Beispiel zu Musik und Konzerten.",
+   "en": "A2: I can understand and use English topic vocabulary – for example about music and concerts."
   },
   "fachbereich": "en"
  },
  "en.wortschatz.grundwortschatz-anwenden-a1": {
   "name": {
-   "de": "Ich kann englische Grundwörter zu Schule, Familie, Zahlen und Farben verstehen und anwenden.",
-   "en": "I can understand and use basic English words for school, family, numbers and colours."
+   "de": "A1: Ich kann englische Grundwörter zu Schule, Familie, Zahlen und Farben verstehen und anwenden.",
+   "en": "A1: I can understand and use basic English words for school, family, numbers and colours."
   },
   "fachbereich": "en"
  },
  "en.wortschatz.aehnliche-verben-unterscheiden-a2": {
   "name": {
-   "de": "Ich kann ähnliche englische Verben wie listen/hear und watch/see/look at unterscheiden und richtig verwenden.",
-   "en": "I can tell similar English verbs like listen/hear and watch/see/look at apart and use them correctly."
+   "de": "A2: Ich kann ähnliche englische Verben wie listen/hear und watch/see/look at unterscheiden und richtig verwenden.",
+   "en": "A2: I can tell similar English verbs like listen/hear and watch/see/look at apart and use them correctly."
   },
   "fachbereich": "en"
  },
  "en.grammatik.vergangenheitsformen-anwenden-a2": {
   "name": {
-   "de": "Ich kann past simple und past perfect bilden und die richtige Form für die frühere von zwei Handlungen wählen.",
-   "en": "I can form the past simple and the past perfect and pick the right tense for the earlier of two past actions."
+   "de": "A2: Ich kann past simple und past perfect bilden und die richtige Form für die frühere von zwei Handlungen wählen.",
+   "en": "A2: I can form the past simple and the past perfect and pick the right tense for the earlier of two past actions."
   },
   "fachbereich": "en"
  },
  "en.grammatik.satzstrukturen-anwenden-a2": {
   "name": {
-   "de": "Ich kann englische Sätze richtig bauen und Strukturen wie so/such korrekt verwenden.",
-   "en": "I can build English sentences correctly and use structures like so and such properly."
+   "de": "A2: Ich kann englische Sätze richtig bauen und Strukturen wie so/such korrekt verwenden.",
+   "en": "A2: I can build English sentences correctly and use structures like so and such properly."
   },
   "fachbereich": "en"
  },
  "en.grammatik.grundstrukturen-anwenden-a1": {
   "name": {
-   "de": "Ich kann die englischen Grundstrukturen am/is/are, Personalpronomen und have got anwenden.",
-   "en": "I can use the basic English structures am/is/are, personal pronouns and have got."
+   "de": "A1: Ich kann die englischen Grundstrukturen am/is/are, Personalpronomen und have got anwenden.",
+   "en": "A1: I can use the basic English structures am/is/are, personal pronouns and have got."
   },
   "fachbereich": "en"
  },
@@ -562,5 +562,238 @@
    "en": "I can create my own module as module.json and submit it as a pull request."
   },
   "fachbereich": "informatik"
+ },
+ "uef.selbststeuerung.entscheidungen-treffen": {
+  "name": {
+   "de": "Ich treffe Entscheidungen selbst und stehe dazu.",
+   "en": "I make decisions myself and stand by them."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.selbststeuerung.prioritaeten-setzen": {
+  "name": {
+   "de": "Ich setze Prioritäten und beginne mit dem Wichtigen.",
+   "en": "I set priorities and start with what matters most."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.selbststeuerung.ziele-verfolgen": {
+  "name": {
+   "de": "Ich verfolge meine Ziele, bis ich sie erreicht habe.",
+   "en": "I pursue my goals until I reach them."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.selbststeuerung.selbststaendig-arbeiten": {
+  "name": {
+   "de": "Ich führe Aufgaben selbstständig aus, ohne dass man mich erinnern muss.",
+   "en": "I carry out tasks independently without being reminded."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.reflexion.staerken-schwaechen-kennen": {
+  "name": {
+   "de": "Ich kenne meine Stärken und Schwächen.",
+   "en": "I know my strengths and weaknesses."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.reflexion.eigene-arbeit-einschaetzen": {
+  "name": {
+   "de": "Ich kann meine eigene Arbeit realistisch einschätzen.",
+   "en": "I can assess my own work realistically."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.reflexion.verhalten-anderer-einschaetzen": {
+  "name": {
+   "de": "Ich kann das Verhalten anderer einschätzen und fair beurteilen.",
+   "en": "I can read and fairly judge how others behave."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.reflexion.meinungen-vertreten": {
+  "name": {
+   "de": "Ich akzeptiere andere Meinungen und vertrete meine eigene.",
+   "en": "I accept other opinions and stand up for my own."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.herausforderungen.gefuehle-regulieren": {
+  "name": {
+   "de": "Ich kann meine Gefühle wahrnehmen und regulieren.",
+   "en": "I can notice and regulate my emotions."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.herausforderungen.frustration-aushalten": {
+  "name": {
+   "de": "Ich halte Frustration aus, ohne aufzugeben.",
+   "en": "I can tolerate frustration without giving up."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.herausforderungen.rueckschlaege-meistern": {
+  "name": {
+   "de": "Ich gehe mit Rückschlägen um und mache weiter.",
+   "en": "I cope with setbacks and keep going."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.herausforderungen.fehler-nutzen": {
+  "name": {
+   "de": "Ich sehe Fehler als Chance, etwas zu lernen.",
+   "en": "I see mistakes as a chance to learn."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.herausforderungen.ausdauer-zeigen": {
+  "name": {
+   "de": "Ich zeige Ausdauer, auch wenn es schwierig wird.",
+   "en": "I show perseverance, even when things get difficult."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.antrieb.interesse-zeigen": {
+  "name": {
+   "de": "Ich zeige Interesse an neuen Themen.",
+   "en": "I show interest in new topics."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.antrieb.motivation-finden": {
+  "name": {
+   "de": "Ich finde Motivation für meine Aufgaben.",
+   "en": "I find motivation for my tasks."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.antrieb.arbeitsbereitschaft-zeigen": {
+  "name": {
+   "de": "Ich bin bereit, mit der Arbeit zu beginnen.",
+   "en": "I am ready to start working."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.antrieb.anstrengung-zeigen": {
+  "name": {
+   "de": "Ich strenge mich auch bei schwierigen Aufgaben an.",
+   "en": "I make an effort even with difficult tasks."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.antrieb.lernbereitschaft-zeigen": {
+  "name": {
+   "de": "Ich bin offen und bereit, Neues zu lernen.",
+   "en": "I am open and ready to learn new things."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.empathie-zeigen": {
+  "name": {
+   "de": "Ich versetze mich in andere hinein.",
+   "en": "I put myself in other people's shoes."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.im-team-arbeiten": {
+  "name": {
+   "de": "Ich arbeite im Team mit und übernehme meinen Teil.",
+   "en": "I work in a team and do my share."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.verstaendlich-kommunizieren": {
+  "name": {
+   "de": "Ich kommuniziere verständlich und höre zu.",
+   "en": "I communicate clearly and listen."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.regeln-einhalten": {
+  "name": {
+   "de": "Ich halte vereinbarte Regeln ein.",
+   "en": "I keep to agreed rules."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.konflikte-loesen": {
+  "name": {
+   "de": "Ich spreche Konflikte an und suche Lösungen.",
+   "en": "I address conflicts and look for solutions."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.zusammenarbeit.vielfalt-achten": {
+  "name": {
+   "de": "Ich achte Vielfalt und begegne allen mit Respekt.",
+   "en": "I value diversity and treat everyone with respect."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.lernen.informationen-verarbeiten": {
+  "name": {
+   "de": "Ich kann Informationen suchen, verstehen und verarbeiten.",
+   "en": "I can find, understand and process information."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.lernstrategien-nutzen": {
+  "name": {
+   "de": "Ich nutze passende Lernstrategien.",
+   "en": "I use suitable learning strategies."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.planen-organisieren": {
+  "name": {
+   "de": "Ich plane und organisiere meine Arbeit.",
+   "en": "I plan and organise my work."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.arbeit-evaluieren": {
+  "name": {
+   "de": "Ich überprüfe am Ende, wie gut meine Arbeit gelungen ist.",
+   "en": "I evaluate at the end how well my work turned out."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.konzentriert-arbeiten": {
+  "name": {
+   "de": "Ich kann konzentriert an einer Sache bleiben.",
+   "en": "I can stay focused on one thing."
+  },
+  "fachbereich": "uef"
+ },
+ "uef.lernen.probleme-loesen": {
+  "name": {
+   "de": "Ich finde Lösungswege für neue Probleme.",
+   "en": "I find ways to solve new problems."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.zeit-einteilen": {
+  "name": {
+   "de": "Ich teile mir meine Zeit gut ein.",
+   "en": "I manage my time well."
+  },
+  "fachbereich": "uef",
+  "interview": true
+ },
+ "uef.lernen.kritisch-denken": {
+  "name": {
+   "de": "Ich denke kritisch nach und hinterfrage Aussagen.",
+   "en": "I think critically and question claims."
+  },
+  "fachbereich": "uef",
+  "interview": true
  }
 }

@@ -26,6 +26,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { create, unitDependencies, parseDependencies } from "mathjs";
@@ -49,11 +50,15 @@ function istBekannteEinheit(einheit: string): boolean {
   }
 }
 import {
+  extrahiereModulVerweise,
   isKnownBlock,
+  schaubildStandardBefunde,
   KNOWN_BLOCK_TYPES,
   knownBlockSchema,
   LEHRPLAENE,
   lehrplanDefinition,
+  modulVerweisErlaubtInPfad,
+  modulVerweisSyntaxFehler,
   parseModulDatei,
   PLANSPIEL_DOKUMENT_PRAEFIX,
   PLANSPIEL_VERBOTENE_MUSTER,
@@ -63,6 +68,7 @@ import {
   VIDEO_DATEI_MUSTER,
   type LearningModule,
   type TermKnoten,
+  SCHAUBILD_SZENE_WARN_BYTES,
 } from "./schema";
 
 // Schlanke Parse-Instanz für term-Musterlösungen (nur parse, kein
@@ -154,13 +160,23 @@ const teilkompetenzEintragSchema = z.strictObject({
     })
     .optional(),
   fachbereich: z.string().trim().min(1).max(60),
+  // Kennungs-Schutz (Spinnennetz): ausgediente Kennungen werden als
+  // veraltet markiert statt gelöscht/umbenannt (s. kennungsSchutz unten).
+  veraltet: z
+    .strictObject({
+      nachfolger: z.string().trim().min(1).max(64).optional(),
+    })
+    .optional(),
+  // true = für den experimentellen KI-Interview-Block zugelassen (nur
+  // kognitive/lernbezogene Indikatoren, nie emotionale/persönlichkeitsnahe).
+  interview: z.literal(true).optional(),
 });
 
 type KompetenzRegister = Record<string, z.infer<typeof teilkompetenzEintragSchema>>;
 type KompetenzMapping = Record<string, Partial<Record<string, string[]>>>;
 
 /** Code-Schema wie lehrplanKompetenzSchema.code (freies Format ≤ 60). */
-const kompetenzCodeSchema = z.string().trim().min(1).max(60);
+const kompetenzCodeSchema = z.string().trim().min(1).max(80);
 
 function kompetenzTabellenFehler(datei: string, meldungen: string[]): Error {
   return new Error(
@@ -238,7 +254,7 @@ function parseKompetenzMapping(
       const codes = z.array(kompetenzCodeSchema).min(1).max(8).safeParse(codesRoh);
       if (!codes.success) {
         meldungen.push(
-          `${kennung}.${lehrplan}: erwartet eine Liste von 1–8 Kompetenz-Codes (Strings, ≤ 60 Zeichen).`,
+          `${kennung}.${lehrplan}: erwartet eine Liste von 1–8 Kompetenz-Codes (Strings, ≤ 80 Zeichen).`,
         );
         continue;
       }
@@ -277,10 +293,134 @@ function liesKompetenzTabelle(name: string): unknown | null {
   return wert;
 }
 
+/** Lehrplan-Struktur prüfen (kompetenzen/lehrplan-struktur.json) –
+ *  Regeln identisch zu parseLehrplanStruktur der Plattform. */
+const strukturBereichSchema = z.strictObject({
+  code: kompetenzCodeSchema,
+  name: z.strictObject({
+    de: z.string().trim().min(1).max(160),
+    en: z.string().trim().min(1).max(160),
+  }),
+  quelle: z.string().trim().min(1).max(300),
+  ungeprueft: z.literal(true).optional(),
+});
+
+function pruefeLehrplanStruktur(raw: unknown, datei: string): void {
+  const objekt = kompetenzAlsObjekt(raw, datei);
+  const meldungen: string[] = [];
+  for (const [lehrplan, faecherRoh] of Object.entries(objekt)) {
+    if (lehrplan === "_hinweis") continue;
+    if (lehrplanDefinition(lehrplan) === undefined) {
+      meldungen.push(`"${lehrplan}": Lehrplan ist nicht registriert.`);
+      continue;
+    }
+    if (
+      faecherRoh === null ||
+      typeof faecherRoh !== "object" ||
+      Array.isArray(faecherRoh)
+    ) {
+      meldungen.push(`${lehrplan}: erwartet { "<fachbereich>": [Bereiche…] }.`);
+      continue;
+    }
+    for (const [fach, bereicheRoh] of Object.entries(
+      faecherRoh as Record<string, unknown>,
+    )) {
+      const bereiche = z
+        .array(strukturBereichSchema)
+        .min(1)
+        .max(40)
+        .safeParse(bereicheRoh);
+      if (!bereiche.success) {
+        for (const issue of bereiche.error.issues) {
+          meldungen.push(
+            `${lehrplan}.${fach}[${issue.path.join(".")}]: ${issue.message}`,
+          );
+        }
+        continue;
+      }
+      const codes = bereiche.data.map((b) => b.code);
+      if (new Set(codes).size !== codes.length) {
+        meldungen.push(`${lehrplan}.${fach}: jeder Bereichs-Code höchstens einmal.`);
+      }
+    }
+  }
+  if (meldungen.length > 0) throw kompetenzTabellenFehler(datei, meldungen);
+}
+
+/** Eigene Kategorien prüfen (kompetenzen/kategorien.json) – Regeln
+ *  identisch zu parseKompetenzKategorien der Plattform. */
+const kompetenzKategorieSchema = z.strictObject({
+  id: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
+  name: z.strictObject({
+    de: z.string().trim().min(1).max(160),
+    en: z.string().trim().min(1).max(160),
+  }),
+  teilkompetenzen: z.array(z.string().trim().min(1).max(64)).min(1).max(40),
+});
+
+function pruefeKompetenzKategorien(
+  raw: unknown,
+  register: KompetenzRegister,
+  datei: string,
+): void {
+  const objekt = kompetenzAlsObjekt(raw, datei);
+  const meldungen: string[] = [];
+  for (const [fach, listeRoh] of Object.entries(objekt)) {
+    if (fach === "_hinweis") continue;
+    const liste = z
+      .array(kompetenzKategorieSchema)
+      .min(1)
+      .max(12)
+      .safeParse(listeRoh);
+    if (!liste.success) {
+      for (const issue of liste.error.issues) {
+        meldungen.push(`${fach}[${issue.path.join(".")}]: ${issue.message}`);
+      }
+      continue;
+    }
+    const ids = liste.data.map((k) => k.id);
+    if (new Set(ids).size !== ids.length) {
+      meldungen.push(`${fach}: jede Kategorie-id höchstens einmal.`);
+    }
+    const gesehen = new Map<string, string>();
+    for (const kategorie of liste.data) {
+      for (const kennung of kategorie.teilkompetenzen) {
+        if (register[kennung] === undefined) {
+          meldungen.push(
+            `${fach}.${kategorie.id}: Kennung "${kennung}" ist nicht im Register.`,
+          );
+          continue;
+        }
+        if (!kennung.startsWith(`${fach}.`)) {
+          meldungen.push(
+            `${fach}.${kategorie.id}: Kennung "${kennung}" gehört nicht zum Fach "${fach}".`,
+          );
+          continue;
+        }
+        const schon = gesehen.get(kennung);
+        if (schon !== undefined) {
+          meldungen.push(
+            `${fach}: Kennung "${kennung}" ist zweimal zugeordnet (${schon} und ${kategorie.id}).`,
+          );
+          continue;
+        }
+        gesehen.set(kennung, kategorie.id);
+      }
+    }
+  }
+  if (meldungen.length > 0) throw kompetenzTabellenFehler(datei, meldungen);
+}
+
 /** kompetenzen/ existiert – erst dann sind Modul-Referenzen prüfbar. */
 const kompetenzenAktiv = fs.existsSync(path.join(ROOT, "kompetenzen"));
 let kompetenzRegister: KompetenzRegister = {};
 let kompetenzMapping: KompetenzMapping = {};
+// Geprüfte Struktur-Tabelle für den Mapping-Abgleich weiter unten
+// (nach pruefeLehrplanStruktur ist die Form gesichert).
+let kompetenzStruktur: Record<string, Record<string, { code: string }[]>> = {};
 try {
   if (kompetenzenAktiv) {
     const registerRoh = liesKompetenzTabelle("teilkompetenzen.json");
@@ -295,10 +435,84 @@ try {
         "mapping.json",
       );
     }
+    const strukturRoh = liesKompetenzTabelle("lehrplan-struktur.json");
+    if (strukturRoh !== null) {
+      pruefeLehrplanStruktur(strukturRoh, "lehrplan-struktur.json");
+      kompetenzStruktur = strukturRoh as Record<
+        string,
+        Record<string, { code: string }[]>
+      >;
+    }
+    const kategorienRoh = liesKompetenzTabelle("kategorien.json");
+    if (kategorienRoh !== null) {
+      pruefeKompetenzKategorien(
+        kategorienRoh,
+        kompetenzRegister,
+        "kategorien.json",
+      );
+    }
   }
 } catch (err) {
   console.error(`✗ ${(err as Error).message}`);
   process.exit(1);
+}
+
+/**
+ * KENNUNGS-SCHUTZ (Spinnennetz, 26.9.2026): Registrierte Kennungen sind
+ * DAUERHAFT – an ihnen hängen Einschätzungs-Datenpunkte auf Schüler-
+ * und Lehrergeräten, die ein Umbenennen nie mitvollziehen könnten.
+ * Diese Prüfung vergleicht das Register gegen die PR-Basis (dieselbe
+ * Umgebungsvariable wie die Fassungs-Prüfung, UEBERSETZUNG_BASIS =
+ * origin/<base_ref> in der CI): Jede Kennung der Basis muss weiter
+ * existieren; ausgediente werden als `veraltet` markiert (optional mit
+ * `nachfolger`). Ohne Basis (lokaler Lauf) entfällt die Prüfung.
+ */
+function kennungsSchutzFehler(register: KompetenzRegister): string[] {
+  const basis = process.env.UEBERSETZUNG_BASIS;
+  if (!basis) return [];
+  let altRoh: string;
+  try {
+    altRoh = execFileSync(
+      "git",
+      ["show", `${basis}:kompetenzen/teilkompetenzen.json`],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+  } catch {
+    // Datei existierte in der Basis noch nicht (Erst-Anlage) oder die
+    // Basis ist lokal nicht auflösbar – dann gibt es nichts zu schützen.
+    return [];
+  }
+  // BEWUSST kein kompetenzenAktiv-Gate: Trägt die BASIS Kennungen und
+  // fehlt der Ordner (bzw. die Datei) im PR-Stand, ist das genau der
+  // Fall, den der Schutz verhindern soll – ein gelöschtes/verschobenes
+  // kompetenzen/ liefe sonst still als «leeres Register» durch
+  // (Review-Fund 26.9.2026; das leere `register` meldet dann jede
+  // Basis-Kennung als entfernt).
+  let alt: unknown;
+  try {
+    alt = JSON.parse(altRoh);
+  } catch {
+    return [];
+  }
+  if (typeof alt !== "object" || alt === null) return [];
+  const fehler: string[] = [];
+  for (const kennung of Object.keys(alt)) {
+    if (kennung === "_hinweis") continue;
+    if (!Object.hasOwn(register, kennung)) {
+      fehler.push(
+        `kompetenzen/teilkompetenzen.json: Registrierte Kennung "${kennung}" wurde entfernt oder umbenannt – Kennungen sind dauerhaft (Belegspur-Datenpunkte hängen daran). Stattdessen als veraltet markieren: "veraltet": { "nachfolger": "<neue-kennung>" }.`,
+      );
+    }
+  }
+  return fehler;
+}
+
+{
+  const schutz = kennungsSchutzFehler(kompetenzRegister);
+  if (schutz.length > 0) {
+    for (const f of schutz) console.error(`✗ ${f}`);
+    process.exit(1);
+  }
 }
 
 /** Alle in Modulen referenzierten Kennungen (fürs Warn-Resümee am Ende). */
@@ -319,6 +533,19 @@ function teilkompetenzReferenzFehler(mod: LearningModule): string[] {
       if (kompetenzenAktiv && kompetenzRegister[kennung] === undefined) {
         fehler.push(
           `blocks.${i}: Teilkompetenz "${kennung}" ist nicht im Register (kompetenzen/teilkompetenzen.json) – zuerst dort eintragen.`,
+        );
+      }
+      // EXPERIMENTELLER interview-Block: nur Register-Einträge mit
+      // interview: true (kognitive/lernbezogene Indikatoren – nie
+      // emotionale oder persönlichkeitsnahe; Spiegel der Plattform).
+      if (
+        kompetenzenAktiv &&
+        block.type === "interview" &&
+        kompetenzRegister[kennung] !== undefined &&
+        kompetenzRegister[kennung].interview !== true
+      ) {
+        fehler.push(
+          `blocks.${i}: Teilkompetenz "${kennung}" ist nicht für KI-Interviews freigegeben (Register-Feld interview: true fehlt).`,
         );
       }
     }
@@ -383,6 +610,34 @@ function hostOf(url: string): string | null {
   }
 }
 
+/**
+ * Modul-Querverweis-Regeln über ein ROHES Modul-/Fassungs-Objekt:
+ * kaputte Syntax, Whitelist-Verstösse und tote Ziele (22.9.2026).
+ */
+function modulVerweisFehler(raw: unknown, allSlugs: string[]): string[] {
+  const fehler: string[] = [];
+  walkStrings(raw, [], (pathStr, s) => {
+    const klammerPfad = pathStr.replace(/\.(\d+)(?=\.|$)/g, "[$1]");
+    const syntax = modulVerweisSyntaxFehler(s);
+    if (syntax) fehler.push(`"${pathStr}": ${syntax}`);
+    const verweise = extrahiereModulVerweise(s);
+    if (verweise.length === 0) return;
+    if (!modulVerweisErlaubtInPfad(klammerPfad)) {
+      fehler.push(
+        `"${pathStr}": Modul-Verweise ([[modul:…]]) sind hier nicht erlaubt – nur in didaktischem Fliesstext (body, intro, Lückentext-text, prompts, hints, solutions, explanations, Options-Texten, Simulations-Knoten/Abschlussfrage, learningObjectives, beschreibung/definition/Szene-Texten). Titel, Metadaten, captions und Antwort-Material bleiben verweisfrei.`,
+      );
+    }
+    for (const ziel of verweise) {
+      if (!allSlugs.includes(ziel)) {
+        fehler.push(
+          `"${pathStr}": [[modul:${ziel}]] verweist auf ein Modul, das es nicht gibt – Verweise nutzen den Ordner-Slug des Zielmoduls.`,
+        );
+      }
+    }
+  });
+  return fehler;
+}
+
 function checkModule(
   slug: string,
   raw: unknown,
@@ -396,6 +651,34 @@ function checkModule(
   // --- Teilkompetenzen: jede referenzierte Kennung braucht einen ----------
   // Register-Eintrag (Fassungen prüft der Hauptlauf mit derselben Funktion).
   errors.push(...teilkompetenzReferenzFehler(mod));
+
+  // --- schaubild: Szene muss KANONISCH (verschlankt) in der Datei ---------
+  // stehen. Das Schema verdaut auch rohe Editor-Exporte (transform
+  // verschlankt beim Parsen) – im Repo sollen aber nur die schlanken
+  // Szenen liegen (Modulgrösse; byte-stabile Übersetzungs-Vergleiche).
+  {
+    const rohBloecke =
+      raw && typeof raw === "object"
+        ? ((raw as Record<string, unknown>).blocks as unknown[] | undefined)
+        : undefined;
+    mod.blocks.forEach((block, i) => {
+      if (!isKnownBlock(block) || block.type !== "schaubild") return;
+      const rohSzene = (rohBloecke?.[i] as Record<string, unknown> | undefined)
+        ?.szene;
+      const kanonisch = JSON.stringify(block.szene);
+      if (JSON.stringify(rohSzene) !== kanonisch) {
+        errors.push(
+          `blocks[${i}] (schaubild): Die Szene ist noch nicht verschlankt – bitte npm run schaubild-verschlanken -- ${slug} ausführen (schreibt die kanonische Form in die Datei).`,
+        );
+      }
+      const bytes = Buffer.byteLength(kanonisch, "utf8");
+      if (bytes > SCHAUBILD_SZENE_WARN_BYTES) {
+        hints.push(
+          `blocks[${i}] (schaubild): Szene ist ${Math.round(bytes / 1024)} KB gross (Warnschwelle ${Math.round(SCHAUBILD_SZENE_WARN_BYTES / 1024)} KB, hartes Limit ${Math.round(262144 / 1024)} KB) – Freihand-Striche sparen oder aufteilen.`,
+        );
+      }
+    });
+  }
 
   // --- Blocktypen: nur implementierte + freigegebene Zukunftstypen --------
   for (const block of mod.blocks) {
@@ -532,6 +815,16 @@ function checkModule(
   for (const block of mod.blocks) {
     if (isKnownBlock(block) && block.type === "image") {
       checkBildUrl(block.src, "Bild-src");
+      // Bildnachweis ist für REPO-Module Pflicht (Betreiber-Entscheid
+      // 15.9.2026): Quelle UND Lizenz gehören zu jedem Bild – das
+      // Zod-Schema lässt `credit` bewusst optional (gespeicherte
+      // LOKALE Module dürfen beim Laden nie ungültig werden), die
+      // Pflicht erzwingt dieser Validator als PR-Gate.
+      if (!block.credit?.trim()) {
+        errors.push(
+          'Bild-Block ohne "credit": Quelle und Lizenz sind Pflicht (z. B. "Foto: NASA, Public Domain" oder "Wikimedia Commons, CC BY-SA 4.0, <Autor>").',
+        );
+      }
     }
     // Zuordnungs-Bilder unterliegen denselben Regeln wie image-Blöcke.
     if (isKnownBlock(block) && block.type === "zuordnung") {
@@ -694,6 +987,36 @@ function checkModule(
     }
   }
 
+  // --- Schaubild-Standard: Kontrast + Schriftwahl (24.9.2026) --------------
+  // Freigabe «weich»: Kontrast unter 4,5:1 (hell ODER dunkel) ist ein
+  // FEHLER, Handschrift (fontFamily 5) nur ein HINWEIS. Fassungen
+  // teilen die (farb-invarianten) Szenen des Masters – geprüft wird
+  // hier der Master.
+  mod.blocks.forEach((block, i) => {
+    if (!isKnownBlock(block) || block.type !== "schaubild") return;
+    const befunde = schaubildStandardBefunde(block.szene);
+    errors.push(...befunde.fehler.map((f) => `blocks[${i}] (schaubild): ${f}`));
+    hints.push(...befunde.hinweise.map((h) => `blocks[${i}] (schaubild): ${h}`));
+  });
+
+  // --- Modul-Querverweise [[modul:<slug>]] (22.9.2026) ---------------------
+  // Tote Ziele, unvollständige Syntax und Verweise ausserhalb der
+  // Fliesstext-Whitelist sind FEHLER – rohe Syntax oder tote Links
+  // erreichen nie den Player. Der Hauptlauf ruft modulVerweisFehler
+  // zusätzlich für JEDE Sprachfassung auf (auch dort dürfen etwa
+  // verbreiterte Lücken-Antwortlisten keine Verweise tragen).
+  errors.push(...modulVerweisFehler(raw, allSlugs));
+
+  // Modultitel dürfen keine {{n}}-Marker tragen: Aufgelöste
+  // Modul-Verweise landen als Titel-Text in Lückentexten, deren
+  // Marker-Zerlegung NACH der Auflösung läuft – ein Marker im Titel
+  // injizierte eine Phantom-Lücke (Review-Fund 22.9.2026).
+  if (/\{\{\d+\}\}/.test(mod.title)) {
+    errors.push(
+      `"title": "${mod.title}" darf keine {{n}}-Marker enthalten (aufgelöste Modul-Verweise stehen in Lückentexten).`,
+    );
+  }
+
   // --- Kein Roh-HTML; Markdown-Bilder unterliegen der Bild-Whitelist -------
   walkStrings(raw, [], (pathStr, s) => {
     const tags = findHtmlTags(s);
@@ -762,11 +1085,38 @@ function checkModule(
     });
   });
 
-  // --- requires soll auf existierende Module zeigen (Warnung) --------------
+  // --- requires muss auf existierende Module zeigen (FEHLER seit
+  // 15.9.2026 – ein fehlendes Ziel ist ein kaputter Lernpfad, kein
+  // Schönheitsfehler; vorher nur Warnung) und darf das Modul nicht
+  // selbst referenzieren. Zyklen über mehrere Module prüft der
+  // Repo-weite Lauf am Ende (pruefeRequiresZyklen).
   for (const req of mod.requires) {
-    if (!allSlugs.includes(req)) {
-      hints.push(`requires verweist auf "${req}" – dieses Modul existiert (noch) nicht.`);
+    if (req === mod.id) {
+      errors.push(`requires verweist auf das Modul selbst ("${req}").`);
+    } else if (!allSlugs.includes(req)) {
+      errors.push(
+        `requires verweist auf "${req}" – dieses Modul existiert nicht. Ziel-Modul im selben Pull Request mitliefern oder den Eintrag entfernen.`,
+      );
     }
+  }
+
+  // --- Lehrplanabhängige Angaben gehören NICHT in die dauerhafte ID
+  // (Lernstände/Reports hängen daran; die Stufe steht je Lehrplan in
+  // curricula und kann sich ändern). HINWEIS statt Fehler: Der Bestand
+  // trägt ein Alt-Modul mit Stufe in der ID (bewusst nicht umbenannt).
+  if (/(^|-)(stufe|klasse|zyklus)\d+(-|$)|(^|-)sek[12](-|$)/.test(mod.id)) {
+    hints.push(
+      `Die id "${mod.id}" enthält eine lehrplanabhängige Stufenangabe – für NEUE Module bitte ohne (CONTENT-ERSTELLEN.md, Abschnitt Pflichtfelder).`,
+    );
+  }
+
+  // --- Einheit ohne Lernreihenfolge (Warnung) ------------------------------
+  // Der Katalog zeigt dann bewusst keine Lernpfad-Nummern – vermutlich ist
+  // das Vergessen der sequenz aber ein Versehen.
+  if (mod.einheit && mod.sequenz === undefined) {
+    hints.push(
+      `einheit "${mod.einheit}" ist gesetzt, aber ohne "sequenz" – der Katalog zeigt für dieses Modul keine Lernpfad-Nummer.`,
+    );
   }
 
   return { errors, hints };
@@ -833,6 +1183,9 @@ function repoPolicyFehler(raw: unknown): string[] {
 }
 
 let failed = 0;
+
+/** requires je Modul – für den Repo-weiten Zyklen-Check am Ende. */
+const requiresJeModul = new Map<string, string[]>();
 
 for (const slug of slugs) {
   const file = path.join(MODULES_DIR, slug, "module.json");
@@ -906,6 +1259,8 @@ for (const slug of slugs) {
     );
   }
 
+  requiresJeModul.set(slug, parsed.data.requires);
+
   const result = checkModule(slug, raw, parsed.data, slugs);
   errors.push(...result.errors);
   hints.push(...result.hints);
@@ -949,6 +1304,14 @@ for (const slug of slugs) {
           ),
         );
       }
+      // Modul-Querverweise auch je Fassung (Syntax/Whitelist/tote
+      // Ziele auf dem ROHEN Objekt): Der Multiset-Vergleich der
+      // Strukturprüfung deckt frei übersetzbare Unterbäume (z. B.
+      // verbreiterte Lücken-Antwortlisten) nicht ab (Review-Fund
+      // 22.9.2026).
+      errors.push(
+        ...modulVerweisFehler(fassungRaw, slugs).map((e) => `(${eintrag}) ${e}`),
+      );
     } catch {
       // kein gültiges JSON: bereits von pruefeFassungen gemeldet
     }
@@ -985,6 +1348,62 @@ for (const kennung of Object.keys(kompetenzRegister)) {
     console.log(
       `  ℹ Kompetenzen: "${kennung}" hat kein Lehrplan-Mapping (mapping.json) – erscheint im Dashboard unter «ohne Zuordnung».`,
     );
+  }
+}
+
+// Mapping↔Struktur-Abgleich (Hinweis, KEIN Fehler – Review-Fund
+// 29.9.2026, Spiegel des Plattform-Validierers): Ein Mapping-Code, der
+// in keinem Struktur-Bereich seines Lehrplans liegt, verschwindet in
+// der Lehrplan-Sicht des Netzdiagramms still. Geprüft nur, wo die
+// Struktur das Fach führt.
+for (const [kennung, zuordnungen] of Object.entries(kompetenzMapping)) {
+  const fach = kennung.split(".")[0];
+  for (const [lehrplan, codes] of Object.entries(zuordnungen)) {
+    const bereiche = kompetenzStruktur[lehrplan]?.[fach];
+    if (!Array.isArray(bereiche) || bereiche.length === 0 || !codes) continue;
+    for (const code of codes) {
+      const drin = bereiche.some(
+        (b) => code === b.code || code.startsWith(`${b.code}.`),
+      );
+      if (!drin) {
+        console.log(
+          `  ℹ Kompetenzen: "${kennung}" (${lehrplan}) – Code «${code}» liegt in keinem Bereich der lehrplan-struktur.json und fehlt darum in der Lehrplan-Sicht des Netzdiagramms.`,
+        );
+      }
+    }
+  }
+}
+
+// Repo-weiter requires-Zyklen-Check (15.9.2026): Ein Kreis aus
+// Voraussetzungen («A braucht B braucht A») wäre ein Lernpfad ohne
+// Einstieg – Fehler, nicht Warnung. Selbstbezüge meldet checkModule
+// bereits je Modul; hier geht es um Kreise über mehrere Module
+// (Tiefensuche mit Drei-Farben-Markierung, deterministische Ausgabe).
+{
+  const farbe = new Map<string, 1 | 2>();
+  const zyklen: string[][] = [];
+  const besuche = (slug: string, pfad: string[]): void => {
+    farbe.set(slug, 1);
+    for (const ziel of requiresJeModul.get(slug) ?? []) {
+      // Selbstbezug meldet checkModule bereits je Modul – hier nicht
+      // doppelt als «Zyklus» ausgeben.
+      if (ziel === slug) continue;
+      if (farbe.get(ziel) === 1) {
+        zyklen.push([...pfad.slice(pfad.indexOf(ziel)), ziel]);
+      } else if (!farbe.has(ziel) && requiresJeModul.has(ziel)) {
+        besuche(ziel, [...pfad, ziel]);
+      }
+    }
+    farbe.set(slug, 2);
+  };
+  for (const slug of [...requiresJeModul.keys()].sort()) {
+    if (!farbe.has(slug)) besuche(slug, [slug]);
+  }
+  for (const zyklus of zyklen) {
+    console.error(
+      `✗ requires-Zyklus: ${zyklus.join(" → ")} – Voraussetzungen dürfen keinen Kreis bilden.`,
+    );
+    failed++;
   }
 }
 

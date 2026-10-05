@@ -29,6 +29,18 @@ Plattform-Repository, wo es beim Build erzwungen wird.)*
 | 2 | 13. August 2026 | Additiv (kein Versionswechsel): Lehrplan-Einträge dürfen statt einer Schulstufe die Stufe **`selbststudium: true`** tragen – für Module oberhalb der Schulzeit (z. B. das technische Demo-Modul); der Katalog führt sie unter der eigenen Stufe «Selbststudium» NACH der höchsten Klassenstufe. Zugleich zeigt die Modulseite die **Kompetenzverweise je Lehrplan**: Bei gewähltem Lehrplan erscheinen die `kompetenzen` des passenden `lehrplaene`-Eintrags (bzw. der impliziten Migration aus `competencies`); **fehlen sie für die Wahl, entfällt die Kompetenz-Zeile** – wer sie behalten will, pflegt `kompetenzen` in jedem Eintrag. **Achtung Rollout wie bei `lehrplaene`:** Module MIT `selbststudium` erst NACH dem zugehörigen Plattform-Deploy einreichen. |
 | **3** | 14. August 2026 | **Vereinheitlichte Lehrplan-Metadaten.** Die sechs Top-Level-Felder `subject`/`subjectName`/`cycle`/`grades`/`curriculum`/`competencies` **und** die Zuordnungstabelle `lehrplaene` sind ersetzt durch **ein** Feld [`curricula`](#mehrere-lehrpläne-curricula): eine **Liste** von Zuordnungen, je Eintrag `curriculum` (Kennung `li`/`ch`/`de`/`at`), `subject`/`subjectName`, Stufe und `competencies` (Code-Format frei). Die **Stufe** ist vereinheitlicht: Klassenstufen-**Zahlen** in `grades` (`[9]`, `[7, 8, 9]` – der Zyklus-Begriff entfällt, auch `li`/`ch` tragen Zahlen), davor ein **Bezeichner** («Stufe» bei `li`/`ch`, «Klasse» bei `de`/`at` – Standard-Wort aus der Lehrplan-Registry, per `gradesText` übersteuerbar; Anzeige «Stufe 7–9», «Klasse 9»). Module **ohne** Klassenstufe tragen nur `gradesText` (z. B. `"Erwachsene"` – ersetzt `selbststudium`, erscheint im Stufen-Filter nach allen Klassenstufen). Version-1/2-Dateien liest die **Plattform** weiterhin (verlustfreie Migration, wichtig für lokal eingeladene Module) – **dieses Repo nimmt nur noch Version 3 an** (Validator-Policy lehnt `schemaVersion` < 3 und die alten Top-Level-Felder mit Klartext-Meldung ab). Migrations-Mapping: siehe [Mehrere Lehrpläne](#mehrere-lehrpläne-curricula). **Achtung Rollout:** Ältere Player lehnen Version-3-Dateien hart ab – Module erst NACH dem zugehörigen Plattform-Deploy einreichen. |
 | **3** (additiv) | 18. August 2026 | KEIN Versionswechsel: `languageLearning` am Master (Sprachlernmodule, werden nie übersetzt), `_hinweis` + `derivedFrom` in Sprachfassungen (`module.<lang>.json`). ACHTUNG Rollout: Plattform-Schema ZUERST deployen, erst danach Module/Fassungen mit den neuen Feldern mergen – ältere Plattform-Stände lehnen sie strikt ab. |
+| **3** (additiv) | 21. September 2026 | KEIN Versionswechsel, zwei Ergänzungen. (a) **Video-Untertitel:** optionales Feld [`transkriptSegmente`](#video--video-einbettung) am `video`-Block – zeitgestempelte Transkript-Segmente (Startzeit in Sekunden + Text), die der Player synchron zur Abspielposition als ein-/ausschaltbare Untertitel unter dem Video zeigt; die Übersetzung überträgt nur die Texte, die Startzeiten bleiben unverändert. Bei `provider: "vimeo"` nicht erlaubt (der Player kann die Abspielposition dort nicht lesen). **Achtung Rollout wie beim satzbau:** Ältere Player lehnen Module MIT dem Feld hart ab – erst NACH dem zugehörigen Plattform-Deploy einreichen. (b) Neuer Blocktyp [`diagramm`](#diagramm--schaubild-als-daten-mermaid) – Schaubilder als Mermaid-Definition statt gerendertem Bild (Typen `flowchart`/`graph`/`timeline`/`mindmap`), mit **Pflicht-Textbeschreibung** `beschreibung` (Barrierefreiheit, Vorlesen, Fallback); Beschriftungen laufen durch die normale Übersetzung, die Mermaid-Syntax ist unveränderlich. Ältere Player zeigen einen Platzhalter – Module bleiben dort gültig. |
+| **3** (additiv) | 21. September 2026 | KEIN Versionswechsel: neuer Blocktyp [`schaubild`](#schaubild--gestaltetes-schaubild-handzeichnung-excalidraw) – **gestaltete Schaubilder im Handzeichnungs-Stil** als eingebettete Excalidraw-Szene (gezeichnet im kostenlosen Editor excalidraw.com, exportierte Szene als JSON direkt im Block; keine separate Datei, kein Vorrendern). Zulässig sind nur Formen, Pfeile, Linien, Freihand und Text (Handschrift Excalifont); eingebettete Webinhalte, Element-Links und Bilddateien (`files`) lehnt die Validierung ab. Pflicht-`beschreibung` (Barrierefreiheit); Szenen werden **verschlankt** gespeichert (`npm run schaubild-verschlanken`, Limit 256 KB); die Übersetzung überträgt **nur die Textinhalte der Elemente**, der Player vermisst Texte beim Rendern neu (Kästen wachsen mit) und die Übersetzungs-CI meldet Überläufe als Hinweise. Ältere Player zeigen einen Platzhalter – Module bleiben dort gültig. |
+
+| **3** (additiv) | 22. September 2026 | KEIN Versionswechsel: optionales Feld [`credit`](#schaubild--gestaltetes-schaubild-handzeichnung-excalidraw) am `schaubild`-Block – Quelle-/Lizenzangabe unter dem gerenderten Schaubild (max. 300 Zeichen, nie übersetzt); **Pflicht bei abgeleiteten Werken** (Nachzeichnung einer fremden Vorlage), wie die credit-Regel des `image`-Blocks. **Achtung Rollout wie beim satzbau** (Feld in bestehendem Blocktyp): Module MIT `credit` am Schaubild erst NACH dem zugehörigen Plattform-Deploy einreichen. |
+| **3** (additiv) | 22. September 2026 | KEIN Versionswechsel: [**Modul-Querverweise**](#modul-querverweise-modulslug) `[[modul:<slug>]]` – Verweise auf andere Module nennen die **stabile Modul-Kennung** (Ordner-Slug) statt Nummer oder Titel; der Player löst sie beim Anzeigen auf (aktueller Titel in der Sprache der gezeigten Fassung, als Link nur, wenn das Ziel im gewählten Lehrplan liegt; in Schaubild-/Diagramm-Texten nur der Titel). Verweise auf nicht existierende Slugs, ausserhalb der Fliesstext-Whitelist oder mit kaputter Syntax sind **Validierungs-FEHLER**; Sprachfassungen übernehmen jeden Verweis zeichengleich (CI erzwingt die Erhaltung). Der Bestand ist umgestellt («siehe Modul 7» → Verweis-Syntax). Keine Schema-Feld-Änderung – ältere Player zeigten nur die rohe Syntax an, darum gilt: Module mit Verweisen erst NACH dem zugehörigen Plattform-Deploy einreichen. |
+| **3** (additiv) | 24. September 2026 | KEIN Versionswechsel: [`schaubild`](#schaubild--gestaltetes-schaubild-handzeichnung-excalidraw)-Texte dürfen neben der Handschrift die **serifenlose Normal-Schrift** des Editors tragen (`fontFamily` 6/Nunito; 2/Helvetica wird darauf normalisiert). Geschlossene **Linien-Polygone mit Füllung** (Pyramiden-/Trapezformen) sind ausdrücklich unterstützt. Erster Anwendungsfall: die überarbeitete Bedürfnispyramide in wp-01. **Achtung Rollout wie beim satzbau** (Wert-Erweiterung in bestehendem Blocktyp): Module mit `fontFamily` 6 erst NACH dem zugehörigen Plattform-Deploy einreichen. |
+| **3** (Regel) | 24. September 2026 | KEIN Versionswechsel: **GER-Niveau im Teilkompetenz-Namen** – die 12 Sprach-Teilkompetenzen tragen ihr Niveau jetzt als Präfix im Namen («A1: Ich kann …» / «A1: I can …», beide Sprachen). Die Plattform-Matrix gruppiert Sprachen seither nach EINER Oberkategorie je Fertigkeit («Wortschatz» statt «Wortschatz (A1)»/«(A2)»). Kennungen unverändert (Register-Regel). |
+| **3** (Regel) | 24. September 2026 | KEIN Versionswechsel, **Schaubild-Standard** (Betreiber-Freigabe, Schrift-Regel «weich»): (a) **Kontrast** – jedes Text-Hintergrund-Paar einer Schaubild-Szene braucht mindestens **4,5:1 (WCAG AA)**, geprüft im hellen UND im dunklen Modus (der Dark-Filter des Players ist exakt berechenbar); Verstösse sind **Validierungs-FEHLER**. (b) **Schrift** – Standard für Schaubild-Texte ist die **Normal-Schrift** (`fontFamily` 6/Nunito); die Handschrift (5) bleibt für bewusst skizzenhafte Akzente erlaubt und wird nur als **Hinweis** gemeldet. Der Bestand (30 Schaubilder) ist umgestellt: alle Texte Nunito, 207 Kontrast-Verstösse farbton-erhaltend korrigiert. |
+| **3** (additiv) | 26. September 2026 | KEIN Versionswechsel: neuer Blocktyp [`einschaetzung`](#einschaetzung--selbsteinschätzung-kompetenz-spinnennetz) – Selbsteinschätzung je Teilkompetenz auf einer Sechs-Stufen-Skala (nie … immer), fürs **Kompetenz-Spinnennetz** (Belegspur, Doku `docs/SPINNENNETZ.md` im Plattform-Repo). Kein prüfender Block (keine Punkte, kein Abschluss-Zwang). Dazu das Fach **`uef` («Überfachliche Kompetenzen»)** im Register (32 lehrplanneutrale Indikatoren als Ich-Sätze; Lehrplan-Ebene über das normale Mapping: LeSiMa-Codes für `li`, LP21-überfachlich für `ch`) und zwei neue **Register-Felder**: `veraltet` (Kennungsschutz – Kennungen werden nie gelöscht/umbenannt, die CI erzwingt das gegen die Übersetzungs-Basis) und `interview` (Kennzeichnung kognitiver/lernbezogener Indikatoren, s. nächste Zeile). Ältere Player zeigen einen Platzhalter – Module bleiben dort gültig. |
+| **3** (additiv, experimentell) | 26. September 2026 | KEIN Versionswechsel: neuer **experimenteller** Blocktyp [`interview`](#interview--ki-interview-zur-selbsteinschätzung-experimentell) – die lokale KI führt ein kurzes Interview entlang skriptierter `leitfragen` und schlägt je Teilkompetenz eine Einschätzung vor (Quelle `ki`, IMMER unbestätigt; der komplette Gesprächsverlauf reist mit dem Report zur Lehrperson, nichts zählt vor ihrer Übernahme). NUR für Teilkompetenzen mit `interview: true` im Register (Validierungs-FEHLER sonst). Ältere Player zeigen einen Platzhalter – Module bleiben dort gültig. |
+| **3** (Tabellen) | 29. September 2026 | KEIN Versionswechsel, nur der Ordner `kompetenzen/`: zwei **neue Tabellen** [`lehrplan-struktur.json`](kompetenzen/lehrplan-struktur.json) (vollständige Bereichsgliederung je Lehrplan × Fachbereich, mit dokumentierter Quelle je Eintrag – Grundlage der Lehrplan-Sicht in Heatmap + **Kompetenz-Netzdiagramm**, das seither so heisst) und [`kategorien.json`](kompetenzen/kategorien.json) (eigene übergeordnete Kategorien je Fachbereich – Grundlage der Teilkompetenz-Sicht). Mapping-Codes dürfen **80 statt 60 Zeichen** lang sein; die `ch`-Codes der überfachlichen Einträge sind auf die offiziellen LP21-Wortlaute korrigiert («Dialog- und Kooperationsfähigkeit», «Aufgaben/Probleme lösen») und die Englisch-Einträge tragen zusätzlich `ch` (identische FS1E-Codes). Module unverändert gültig. **Achtung Rollout wie beim satzbau (UMGEKEHRT zur Tolerant-leer-Intuition): Der Plattform-PR muss ZUERST gemergt/deployt sein** – die Tolerant-leer-Regel gilt nur für FEHLENDE Dateien, aber die korrigierten mapping.json-Codes sind länger als das alte 60-Zeichen-Limit, und ein Content-Merge vor dem Plattform-Deploy liesse jeden Deploy-Hook-Build der alten Plattform hart scheitern. |
+| **3** (Player) | 30. September 2026 | KEIN Versionswechsel, reines Player-Verhalten: Der [`einschaetzung`](#einschaetzung--selbsteinschätzung-kompetenz-spinnennetz)-Block trägt unter den Schiebereglern ein aufklappbares **KI-Interview-Chatfenster** für die Teilkompetenzen des Blocks, die das Register mit `interview: true` freigibt – dieselben Regeln wie der experimentelle `interview`-Blocktyp (Quelle `ki`, immer unbestätigt, kompletter Verlauf reist im Report, klare Kennzeichnung «nicht Cate»; ohne aktivierte lokale KI ein ehrlicher Hinweis). Autor:innen müssen dafür nichts ändern. Nebenbei ist die Beispiel-Kennung des interview-Blocks in dieser Doku korrigiert (`uef.lernen.planen-organisieren` – die frühere `uef.lernen.arbeit-planen` steht nicht im Register und wäre an der Validierung gescheitert). |
 
 ## Ablage
 
@@ -63,9 +75,12 @@ Regeln:
   Verweise), Eindeutigkeit von IDs, Pflicht-`id` bei Quizfragen und
   saubere Modulordner (nur `module.json`, Bilder, Videos, Hördateien und
   referenzierte Planspiel-Dateien, keine Symlinks).
-  `requires`-Verweise auf (noch) nicht existierende
-  Module ergeben nur einen Hinweis, keinen Fehler – Slug trotzdem auf
-  Tippfehler prüfen.
+  `requires`-Verweise müssen auf existierende Module zeigen (fehlende
+  Ziele, Selbstbezüge und Zyklen über mehrere Module sind seit
+  September 2026 FEHLER – ein kaputter Lernpfad soll den Pull Request
+  rot machen); ein neues Ziel-Modul im selben Pull Request mitliefern
+  zählt als existierend. Zudem trägt jeder Bild-Block einen
+  Bildnachweis (`credit` mit Quelle und Lizenz – Pflicht).
 
 ## Aufbau eines Moduls
 
@@ -157,7 +172,7 @@ wie «$5»). Beispiel: `Berechne $$\tfrac{3}{4} + \tfrac{1}{8}$$.`
   "src": "/content/mein-modul/karte.jpg",
   "alt": "Pflicht: Beschreibung für Screenreader",
   "caption": "Optionale Bildunterschrift",
-  "credit": "Optional: Quelle/Lizenz, z. B. «Foto: NASA, Public Domain»"
+  "credit": "PFLICHT: Quelle und Lizenz, z. B. «Foto: NASA, Public Domain»"
 }
 ```
 
@@ -171,6 +186,172 @@ wie «$5»). Beispiel: `Berechne $$\tfrac{3}{4} + \tfrac{1}{8}$$.`
   geklärter Lizenz!) herunterladen und in den Modulordner legen.
 - Nur Bilder mit geklärter Lizenz verwenden und den Nachweis in `credit`
   angeben.
+
+### `diagramm` – Schaubild als Daten (Mermaid)
+
+Seit 21.9.2026. Schaubilder, deren Inhalt aus **Text und Struktur**
+besteht (Flussdiagramme, Kreisläufe, Zeitleisten, Mindmaps, einfache
+Strukturbilder), gehören als Diagramm-**Daten** ins Modul statt als
+gerendertes Bild: Der Player zeichnet sie lokal (Mermaid, kein CDN),
+sie skalieren scharf, folgen hell/dunkel – und die Beschriftungen
+laufen durch die normale **Übersetzung** (in Bilder eingebrannter Text
+bliebe unübersetzt).
+
+```json
+{
+  "type": "diagramm",
+  "id": "kreislauf",
+  "title": "Der einfache Wirtschaftskreislauf",
+  "definition": "flowchart LR\n  H[\"Haushalte\"] -->|\"Arbeitskraft\"| U[\"Unternehmen\"]\n  U -->|\"Lohn\"| H",
+  "beschreibung": "Kreislaufdiagramm: Haushalte geben Arbeitskraft an Unternehmen, Unternehmen zahlen Lohn."
+}
+```
+
+- `definition` (Pflicht, höchstens 5000 Zeichen): die Mermaid-Definition.
+  Die **erste nicht-leere Zeile** bestimmt den Typ – erlaubt sind
+  `flowchart` (mit Richtung `TD`/`LR`/…), `graph`, `timeline` und
+  `mindmap`; andere Typen lehnt die Validierung ab.
+- `beschreibung` (**Pflicht**, höchstens 2000 Zeichen, reiner Text):
+  Textbeschreibung des Schaubilds – sie ist der Screenreader-Text, die
+  Quelle des Vorlese-Knopfs und der ehrliche Ersatz, falls das Rendern
+  scheitert. Beschreiben, WAS das Schaubild aussagt (nicht «ein
+  Diagramm mit Kästen»).
+- **Beschriftungs-Konvention** (die Validierung erzwingt sie – sie
+  macht die Übersetzung möglich):
+  - `flowchart`/`graph`: JEDE Beschriftung in doppelte
+    Anführungszeichen – Knoten `A["Text"]`, `B{"Frage?"}`,
+    `C(("Kreis"))`, Untergraphen `subgraph x["Titel"]`,
+    Kantenbeschriftungen `-->|"Text"|` oder `-- "Text" -->`. Jeder
+    Knoten braucht **einmal** eine Form mit Beschriftung (sonst zeigt
+    Mermaid die rohe id als Text); danach reicht in Verbindungen die
+    nackte id (`A --> B`).
+  - `mindmap`: jeder Knoten mit expliziter Form UND Anführungszeichen –
+    `wurzel(("…"))`, `a["…"]`, `b("…")`, `c{{"…"}}`; nackte Textzeilen
+    sind nicht erlaubt (Mermaid rendert Anführungszeichen dort sonst
+    sichtbar bzw. der Text bliebe unübersetzbar).
+  - `timeline`: KEINE Anführungszeichen (sie würden sichtbar
+    mitgerendert) – dort ist ohnehin jeder Text Beschriftung
+    (`title …`, `section …`, Ereigniszeilen mit `:` als Trenner). Ein
+    Doppelpunkt IM Text ist nicht darstellbar – umformulieren.
+  - Eine Beschriftung: höchstens 200 Zeichen, keine Zeilenumbrüche –
+    lange Texte gehören in die `beschreibung` oder einen Text-Block.
+- **Nicht erlaubt** (Validierung): HTML/`<` (auch `<br/>`), Backticks,
+  `%%`-Kommentare/-Direktiven, Entities (`#…;`, `&…;`),
+  Interaktionen/Styling (`click`, `href`, `callback`, `classDef`,
+  `linkStyle`, `style`, `:::`, `::icon`, `@{ … }`) – das Aussehen
+  bestimmt die Plattform einheitlich.
+- Kein prüfender Block, keine Punkte. Ältere Player zeigen einen
+  Platzhalter (Modul bleibt gültig). Die syntaktische
+  Mermaid-Gültigkeit im Detail prüft erst der Player – er zeigt bei
+  Fehlern ehrlich die `beschreibung`; Definition darum in der Vorschau
+  bzw. im Editor anschauen.
+- Ein Live-Beispiel steht im Demo-Modul
+  ([`modules/demo-blockformat/module.json`](modules/demo-blockformat/module.json),
+  Block `diagramm-demo`).
+
+### `schaubild` – gestaltetes Schaubild (Handzeichnung, Excalidraw)
+
+Seit 21.9.2026. Für **gestaltete** Schaubilder im Handzeichnungs-Stil,
+die mehr Freiheit brauchen als der [`diagramm`](#diagramm--schaubild-als-daten-mermaid)-Block:
+Kurvendiagramme, Mengendiagramme, Achsen-Layouts, nachgebaute
+Oberflächen, freie Anordnungen. Gezeichnet wird im kostenlosen Editor
+[excalidraw.com](https://excalidraw.com); die exportierte Szene steht
+als eingebettetes JSON **direkt im Block** – keine separate Datei,
+kein Vorrendern; der Player zeichnet zur Laufzeit (Bibliothek exakt
+gepinnt; die Schriften Excalifont und Nunito, beide OFL-1.1, sind
+selbst gehostet). Mehrere
+Schaubilder in einem Modul sind mehrere Blöcke.
+
+```json
+{
+  "type": "schaubild",
+  "id": "preisbildung",
+  "title": "Vom Angebot zum Preis",
+  "szene": { "…": "hier den KOMPLETTEN Datei-Export (.excalidraw) einfügen" },
+  "beschreibung": "Pflicht: Was zeigt das Schaubild? (Screenreader, Vorlesen, Fallback)",
+  "credit": "optional: Quelle & Lizenz – Pflicht bei abgeleiteten Werken"
+}
+```
+
+**So entsteht ein Schaubild:**
+
+1. Auf excalidraw.com zeichnen – nur **Formen (Rechteck, Ellipse,
+   Raute), Pfeile, Linien, Freihand und Text**; als Schrift die
+   Normal-Schrift («Normal» – STANDARD; die Handschrift «Hand-drawn»
+   nur für bewusst skizzenhafte Akzente, sie wird als Hinweis
+   gemeldet). Auf Kontrast achten: jedes Text-Hintergrund-Paar
+   mindestens 4,5:1, sonst lehnt die Validierung ab.
+   Beschriftungen als **gebundene Labels** (Text direkt auf der Form
+   tippen – er wandert beim Übersetzen automatisch mit um); nur wo
+   das nicht geht (schräge Formen wie Pyramiden-Stufen), freie,
+   zentrierte Texte mit fester Breite – die Boxbreite höchstens so
+   breit wie die Stufe auf Höhe der obersten Textzeile (die
+   Überlauf-Prüfung sieht schräge Kanten nicht).
+2. **Kästen grosszügig anlegen**: Übersetzungen sind oft länger; der
+   Player lässt Kästen in der Höhe mitwachsen, aber Pfeile und
+   Nachbarelemente rücken nicht zur Seite. Freistehender Text am
+   besten mit fester Breite (im Editor die Textbox aufziehen statt
+   nur klicken).
+3. Exportieren: Menü → «Export» → **«Save to disk»** (.excalidraw)
+   und den DATEI-INHALT als Wert von `"szene"` einfügen.
+4. `npm run schaubild-verschlanken -- <modul-id>` ausführen – das
+   Skript entfernt gelöschte Elemente, Versions-/Zeitstempel-Felder
+   und Rundungs-Rauschen und schreibt die **kanonische** Szene in die
+   Datei (die Validierung verlangt sie; typisch −60 bis −80 %
+   gegenüber dem Roh-Export). Grössenlimit: 256 KB pro Schaubild
+   (Warnung ab 128 KB).
+
+**Schriften und Kontrast (STANDARD seit 24.9.2026):** Standard für
+Schaubild-Texte ist die serifenlose **Normal-Schrift** «Normal»
+(Nunito, `fontFamily` 6 – besser lesbar, besonders für längere
+Beschriftungen und jüngere Lernende); die Handschrift «Hand-drawn»
+(Excalifont, `fontFamily` 5) bleibt für bewusst skizzenhafte Akzente
+erlaubt und wird von der Validierung nur als **Hinweis** gemeldet
+(weiche Regel). Die alten Editor-Codes Virgil/1 und Helvetica/2
+werden automatisch normalisiert; Formen und Linien behalten in allen
+Fällen den handgezeichneten Look. **Kontrast ist Pflicht:** Jedes
+Text-Hintergrund-Paar braucht mindestens **4,5:1 (WCAG AA)** – helle
+Schrift auf dunkler Füllung, dunkle auf heller. Die Validierung
+rechnet beide Modi nach (der dunkle Modus entsteht aus einem exakt
+berechenbaren Filter) und meldet Verstösse als **FEHLER**; als
+Hintergrund zählt die deckende Füllung des Containers bzw. der
+obersten Form unter einem freien Text, sonst der Seitengrund.
+Nicht-deckende Füllungen (hachure/cross-hatch, Teil-Deckkraft) kann
+sie nicht prüfen und meldet sie als Hinweis – am besten deckende
+Füllungen («solid») verwenden.
+
+**Nicht erlaubt** (beide Validierer und der lokale Import lehnen ab):
+eingebettete Webinhalte (`embeddable`/`iframe`), Bilder (`image` +
+`files`), Frames, **Links an Elementen** (sie würden als klickbare
+Flächen im gerenderten Schaubild landen) sowie andere Schriftfamilien
+als die zwei genannten (z. B. die Code-Schrift). `seed` bleibt
+gespeichert – er hält das Hand-Zittern der Striche deterministisch.
+
+**Namensnennung (`credit`, optional, seit 22.9.2026):** Quelle-/
+Lizenzangabe, die der Player dezent unter dem Schaubild zeigt – wie
+beim `image`-Block **Pflicht, wenn das Schaubild ein abgeleitetes Werk
+ist** (eine fremde Vorlage nachzeichnet: deren Namensnennung wandert
+hierher); bei eigenen Grafiken dient sie der Provenienz (z. B.
+`"Eigene Darstellung, EveryCate, CC BY-SA 4.0"`). Maximal 300 Zeichen,
+wird **nie übersetzt**.
+
+**Übersetzung:** Die Ableitung übersetzt **ausschliesslich die
+Textinhalte** der Elemente; Koordinaten, Grössen und Struktur bleiben
+byteidentisch. Da Excalidraw feste Positionen speichert, meldet die
+Übersetzungs-CI als **Hinweise**, wo übersetzte Texte ihre Kästen
+sprengen (der Player lässt sie wachsen) oder Elemente sich neu
+überlappen – solche Stellen per Korrekturhinweis kürzen oder den
+Kasten im Editor vergrössern.
+
+**Abgrenzung:** Knoten-Kanten-Strukturen (Flussdiagramme, Zeitleisten,
+Mindmaps) gehören in den `diagramm`-Block (noch schlanker, rein
+textbasiert); **Fotos und Illustrationen ohne wesentlichen Text**
+bleiben `image`-Blöcke. Schaubilder mit Text sollen NICHT mehr als
+gerenderte Bilder eingecheckt werden.
+
+Ein Live-Beispiel steht im Demo-Modul
+([`modules/demo-blockformat/module.json`](modules/demo-blockformat/module.json),
+Block `schaubild-demo`).
 
 ### `video` – Video-Einbettung
 
@@ -202,6 +383,26 @@ wie «$5»). Beispiel: `Berechne $$\tfrac{3}{4} + \tfrac{1}{8}$$.`
   Vimeo: 6–12 Ziffern). Die Validierung weist ganze URLs zurück.
 - `transcript` (empfohlen): kurze Textalternative fürs Video – wichtig für
   Barrierefreiheit und falls das Video offline oder gesperrt ist.
+- `transkriptSegmente` (optional, seit 21.9.2026): zeitgestempelte
+  Transkript-Segmente als **Untertitel** –
+
+  ```json
+  "transkriptSegmente": [
+    { "start": 0, "text": "Hallo zusammen." },
+    { "start": 3.5, "text": "Heute geht es um Geld." }
+  ]
+  ```
+
+  `start` ist die Startzeit in Sekunden ab Videobeginn (Dezimalwerte
+  erlaubt, streng aufsteigend), `text` der gesprochene Text des
+  Segments (reiner Text, kein Markdown, höchstens 500 Zeichen; 1–400
+  Segmente). Der Player blendet das Segment der aktuellen
+  Abspielposition unter dem Video ein (ein-/ausschaltbar, Standard
+  ein) – in Sprachfassungen automatisch übersetzt (nur die Texte, die
+  Startzeiten bleiben byteidentisch). Ergänzt `transcript`, ersetzt es
+  nicht. **Nicht bei `provider: "vimeo"`** (der Player kann die
+  Vimeo-Abspielposition nicht lesen; die Validierung lehnt die
+  Kombination ab).
 - Der Player lädt Embeds erst nach Klick (Datenschutz); YouTube läuft über
   `youtube-nocookie.com`.
 - Kuratieren statt produzieren: existierende, gute freie Videos einbetten.
@@ -613,6 +814,81 @@ ergänzen, ohne die Aufgaben zu ändern.
 - Additive Ergänzung von Schema-Version 2 (1. August 2026) – ältere
   Player zeigen einen Platzhalter.
 
+### `einschaetzung` – Selbsteinschätzung (Kompetenz-Spinnennetz)
+
+Die Lernenden schätzen sich je referenzierter Teilkompetenz auf einer
+Sechs-Stufen-Skala ein (**nie · selten · manchmal · oft · fast immer ·
+immer**); gespeichert wird ein Einschätzungs-Datenpunkt 0–100 in der
+persönlichen Belegspur (Kompetenz-Spinnennetz – Doku
+`docs/SPINNENNETZ.md` im Plattform-Repo). **Kein prüfender Block:**
+keine Punkte, keine Coins, kein Abschluss-Zwang; der Block zählt wie
+`tasks` als «bearbeitet». Auf Lehrergeräten läuft derselbe Block im
+Lehrer-Modus mit Schülerwahl (Lehrpersonen-Einschätzung direkt in die
+Klassen-Übersicht); bei aktiver Ordner-Synchronisation zusätzlich als
+Peer-Einschätzung für Mitschüler:innen.
+
+```json
+{
+  "type": "einschaetzung",
+  "id": "selbst-lernen",
+  "title": "Wie schätzt du dich ein?",
+  "intro": "Optional: Erklärtext über den Reglern (Markdown).",
+  "teilkompetenzen": [
+    "uef.selbststeuerung.ziele-verfolgen",
+    "uef.reflexion.eigene-arbeit-einschaetzen"
+  ]
+}
+```
+
+Regeln:
+
+- **Pflicht-`id`** (nicht `"quiz"`) – daran hängen Bearbeitet-Merker
+  und Datenpunkt-Bezüge; wie Block-ids nie ändern.
+- **Mindestens eine Teilkompetenz-Kennung aus dem Register** – die
+  Kennungen SIND der Inhalt: Die Regler-Beschriftung ist der
+  Register-Name (Ich-Satz), es gibt keine eigenen Fragetexte im Block.
+- Die überfachlichen Indikatoren liegen im Fach **`uef`**
+  (`uef.<thema>.<indikator>`); fachliche Einschätzungen nutzen die
+  normalen Fach-Kennungen.
+
+### `interview` – KI-Interview zur Selbsteinschätzung (EXPERIMENTELL)
+
+Wie `einschaetzung`, aber als Gespräch: Die **lokale KI** stellt entlang
+der skriptierten `leitfragen` gezielte, altersgerechte Fragen zum Lern-
+und Schulalltag und schlägt am Ende je Teilkompetenz eine Einschätzung
+vor. Die Vorschläge entstehen als Datenpunkte mit Quelle `ki` und
+Status **immer «unbestätigt»** – samt komplettem **Gesprächsverlauf**,
+der mit dem Report zur Lehrperson reist (den Lernenden VOR dem Start
+unmissverständlich angekündigt; der Block ist klar von Cate getrennt
+und hat keinen Zugriff auf Cate-Gespräche). Nichts zählt, bevor die
+Lehrperson übernimmt. Ohne aktivierte lokale KI zeigt der Block einen
+ehrlichen Hinweis statt einer Einschätzung.
+
+```json
+{
+  "type": "interview",
+  "id": "interview-lernen",
+  "title": "Kurzes Interview zu deinem Lernen",
+  "intro": "Optional: Erklärtext (Markdown).",
+  "leitfragen": [
+    "Wie planst du eine grössere Aufgabe?",
+    "Was machst du, wenn du etwas nicht verstehst?"
+  ],
+  "teilkompetenzen": ["uef.lernen.planen-organisieren"]
+}
+```
+
+Regeln:
+
+- **Pflicht-`id`** (nicht `"quiz"`), 1–8 `leitfragen` (je ≤ 300
+  Zeichen; Einstieg und Rückfallebene der KI-Fragen).
+- **Nur kognitive/lernbezogene Indikatoren:** jede referenzierte
+  Teilkompetenz muss im Register mit `interview: true` gekennzeichnet
+  sein – andere Kennungen sind ein Validierungs-FEHLER (bewusste
+  Leitplanke: keine KI-Befragung zu Gefühlen oder Sozialverhalten).
+- Der Blocktyp ist **experimentell**: sparsam einsetzen, Kennzeichnung
+  und Datenfluss (Verlauf → Lehrperson) sind Teil des Player-UIs.
+
 ### `simulation` – verzweigter Rollenspiel-Dialog
 
 Ein skriptiertes Gespräch mit einer Figur: Sie spricht Knoten für Knoten,
@@ -940,6 +1216,13 @@ Regeln und Konventionen:
   eigene Kennung. Die Themen-Ebene ist bei Sprachen die FERTIGKEIT
   (`hoeren`, `lesen`, `schreiben`, `wortschatz`, `grammatik`) – eine
   Fertigkeit erscheint erst, wenn ein Block sie wirklich prüft.
+  **Seit 24.9.2026 steht das Niveau zusätzlich als Präfix im NAMEN**
+  («A1: Ich kann …» / «A1: I can …», beide Sprachen): Die Plattform
+  gruppiert die Matrix seither nach EINER Oberkategorie je Fertigkeit
+  («Wortschatz» statt «Wortschatz (A1)»/«(A2)»), das Niveau lesen
+  Lehrpersonen direkt in der Teilkompetenz-Zeile. Neue Sprach-
+  Teilkompetenzen bekommen den Präfix von Anfang an; die Kennungen
+  bleiben wie immer unangetastet.
 - **Landeskunde einfalten:** Länderspezifische Anteile (Finanzplatz
   Liechtenstein, EWR-Doppelrolle, Franken-Einführung) bekommen keine
   eigene Teilkompetenz, sondern gehören in die fachliche Teilkompetenz
@@ -951,23 +1234,55 @@ Regeln und Konventionen:
   ein Standort-Task den Argument-Bauplan). Repetitions- und
   Anwendungsmodule verwenden ausschliesslich bestehende Kennungen.
 
-### Die zwei Tabellen im Ordner `kompetenzen/`
+### Die Tabellen im Ordner `kompetenzen/`
 
-Bedeutung bekommen die Kennungen durch zwei Tabellen (Pflege per Pull
-Request; ein `_hinweis`-Feld auf oberster Ebene wird ignoriert; beide
+Bedeutung bekommen die Kennungen durch vier Tabellen (Pflege per Pull
+Request; ein `_hinweis`-Feld auf oberster Ebene wird ignoriert; alle
 Dateien in Kanonform `JSON.stringify(inhalt, null, 1) + "\n"`):
 
 - [`kompetenzen/teilkompetenzen.json`](kompetenzen/teilkompetenzen.json)
   – das **Register**: je Kennung ein Name als Kann-Formulierung (de/en),
   optional eine Beschreibung und der `fachbereich` (erstes
-  Kennungs-Segment als Gruppierungswert).
+  Kennungs-Segment als Gruppierungswert). Seit 26.9.2026 zwei optionale
+  Felder: **`veraltet`** (`{}` oder `{ "nachfolger": "<kennung>" }`)
+  markiert eine nicht mehr empfohlene Kennung – **Kennungen werden nie
+  gelöscht oder umbenannt** (Belegspuren draussen im Feld referenzieren
+  sie dauerhaft), die CI erzwingt das: jede Kennung der
+  Übersetzungs-Basis muss weiterexistieren, sonst schlägt
+  `npm run validate` fehl. **`interview: true`** kennzeichnet
+  kognitive/lernbezogene Indikatoren, die der experimentelle
+  [`interview`](#interview--ki-interview-zur-selbsteinschätzung-experimentell)-Blocktyp
+  abfragen darf.
 - [`kompetenzen/mapping.json`](kompetenzen/mapping.json) – das
   **Mapping** auf die Kompetenz-Codes der einzelnen Lehrpläne (je
   Kennung ein Objekt `{"li": ["WAH.2.1"], "ch": ["WAH.2.1"]}`; nur
   registrierte Lehrpläne, 1–8 Codes je Liste). Eine Teilkompetenz darf
   mehreren Codes zuliefern, ein Code mehrere Teilkompetenzen bündeln.
   Lehrpläne ohne Eintrag zeigen die Teilkompetenz im Dashboard unter
-  «ohne Zuordnung».
+  «ohne Zuordnung». Codes sind freie Strings bis 80 Zeichen (seit
+  29.9.2026, vorher 60 – die LP21-überfachlichen Klartext-Codes
+  brauchen mehr).
+- [`kompetenzen/lehrplan-struktur.json`](kompetenzen/lehrplan-struktur.json)
+  – die **vollständige Bereichsgliederung** je Lehrplan × Fachbereich
+  (seit 29.9.2026): auch Bereiche OHNE zugeordnete Teilkompetenzen
+  stehen hier, damit die Lehrplan-Sicht der Plattform (Heatmap +
+  Netzdiagramm) die Lücken ehrlich als «keine Belege» zeigen kann. Je
+  Eintrag `code` (voller Lehrplan-Code, z. B. `FS1E.5`), `name`
+  (de/en) und **`quelle`** (offizielle URL – fl.lehrplan.ch für li,
+  v-ef/v-fe.lehrplan.ch für ch – bzw. Prototyp-Verweis bei den
+  LeSiMa-Kategorien); Codes stammen AUSSCHLIESSLICH aus offiziellen
+  Quellen, nicht sicher belegbare tragen `"ungeprueft": true`.
+  Teilkompetenzen werden per Code-Präfix zugeordnet (`FS1E.5.D.1`
+  liegt in `FS1E.5`).
+- [`kompetenzen/kategorien.json`](kompetenzen/kategorien.json) – die
+  **eigenen übergeordneten Kategorien** je Fachbereich (seit
+  29.9.2026; Quelle der Teilkompetenz-Sicht): je Kategorie `id`,
+  `name` (de/en) und die Liste `teilkompetenzen` (Register-Kennungen
+  desselben Fachbereichs, jede in höchstens EINER Kategorie – die
+  Validierung lehnt Doppel-Zuordnung ab). Die Datei-Reihenfolge ist
+  die Anzeige-Reihenfolge; Fachbereiche ohne Eintrag (und nicht
+  zugeordnete Kennungen) fallen in der Plattform auf die
+  Themen-Gruppen (2. Kennungs-Segment) zurück.
 
 Register-Einträge ohne Verwendung oder ohne Mapping meldet
 `npm run validate` als Hinweis (ℹ), nicht als Fehler. Das vollständige
@@ -1140,6 +1455,66 @@ Sprachfassungen müssen dem Master strukturell exakt entsprechen
 EIN Modul); übersetzt werden nur Textfelder. Ablauf, Befehle und
 Korrektur-Weg: [`UEBERSETZUNG.md`](UEBERSETZUNG.md).
 
+
+## Modul-Querverweise (`[[modul:<slug>]]`)
+
+Seit 22.9.2026. Feste Verweise wie «siehe Modul 7» oder ausgeschriebene
+Titel **brechen**, sobald ein Lehrplan anders nummeriert, ein Titel
+sich ändert oder eine Sprachfassung gezeigt wird. Darum nennen
+Querverweise die **stabile Modul-Kennung** – den Ordner-Slug des
+Zielmoduls:
+
+```markdown
+Den Argument-Bauplan kennst du aus
+[[modul:wirtschaft-politik-09-argumentieren-preisregulierung]].
+```
+
+**Auflösung im Player** (nie in der Datei): Der Verweis erscheint als
+**aktueller Titel des Zielmoduls** in Anführungszeichen der
+Anzeigesprache («…» auf deutschen, “…” auf englischen Seiten) – in der
+**Sprache der gezeigten Fassung**, soweit das Ziel eine solche Fassung
+hat. Er ist ein **Link** auf das Zielmodul, wenn das Ziel einen
+`curricula`-Eintrag des **gewählten Lehrplans** hat; sonst steht nur
+der Titel als Text (nie ein toter Link). In **Schaubild-Szenen,
+Diagramm-Definitionen und `beschreibung`-Feldern** erscheint immer nur
+der Titel (dort sind keine Links möglich) – wichtige Verweise gehören
+darum in den umgebenden Fliesstext.
+
+**Erlaubte Felder** (didaktischer Fliesstext): `body`, `intro`,
+Lückentext-`text`, `prompt`/`hint`/`solution` (Aufgaben),
+`prompt`/`explanation`/Options-Texte (Quiz), Simulations-Knoten
+(`text`/`auswertung`), `learningObjectives`, numerisch/term-`prompt`
+sowie `beschreibung`/`definition`/Szene-Texte der Schaubild-Blöcke.
+**Verboten** sind Verweise in Titeln, `description`, `keywords`,
+`caption`/`alt`/`credit`, Quellen und jedem **Antwort-Material**
+(Lücken-Antworten, Bausteine, Ablenker, Zuordnungs-Elemente,
+numerische Antworten) – die Validierung lehnt sie dort ab.
+
+**Validierung:** `[[modul:…]]` auf einen Slug, den es nicht gibt, ist
+ein **FEHLER** (Master und Sprachfassungen); ebenso unvollständige
+Syntax (`[[modul: x]]`, fehlende Klammern, Grossschreibung).
+
+**Übersetzung:** Die Syntax ist **invariant** – Sprachfassungen
+übernehmen jeden Verweis zeichengleich, nur der umgebende Text wird
+übersetzt (die Übersetzungs-CI erzwingt die Erhaltung; die
+Überlauf-Prüfung der Schaubilder misst mit dem aufgelösten Titel der
+Zielsprache). Hat das ZIEL keine Fassung in der Seitensprache, zeigt
+der Player ehrlich dessen Master-Titel – auf einer englischen Seite
+also ggf. einen deutschen Titel in “…”-Anführungszeichen; das ist der
+gewollte Rettungsanker, bis die Ziel-Fassung existiert.
+
+**Formulierungs-Regeln:** Den Satz so bauen, dass er mit einem
+eingesetzten Modultitel funktioniert: gut «Mehr dazu in
+[[modul:…]].», schlecht «Mehr dazu in Modul [[modul:…]].» (ergäbe «in
+Modul «Titel»»). Tautologien vermeiden – nennt der Satz den Begriff,
+der schon im Zieltitel steckt, umformulieren («In [[modul:…]] hast du
+das Grundmodell kennengelernt» statt «… den einfachen
+Wirtschaftskreislauf …», wenn der Titel genau so heisst). Und in
+**Lückentexten** aufpassen: Der aufgelöste Titel darf keine
+Lücken-Antworten verraten (ein Titel wie «…: Haushalte, Unternehmen,
+Staat» direkt vor Lücken mit genau diesen Antworten löst die Aufgabe
+vor).
+
 ## Checkliste für KI-Autoren
 
 1. Gültiges JSON, `schemaVersion: 3`, `id` = Ordnername.
@@ -1154,6 +1529,12 @@ Korrektur-Weg: [`UEBERSETZUNG.md`](UEBERSETZUNG.md).
 5. Nur lizenzrechtlich unbedenkliche Bilder/Videos einbetten und Quellen in
    `sources`/`credit` ausweisen; Video-Provider und Bild-Hosts müssen der
    Whitelist entsprechen.
+   Schaubilder mit Textinhalt gehören NICHT als gerenderte Bilder ins
+   Modul: Knoten-Kanten-Strukturen (Kreisläufe, Ablaufdiagramme,
+   Zeitleisten, Mindmaps) als [`diagramm`](#diagramm--schaubild-als-daten-mermaid)-Block,
+   gestaltete/freie Layouts (Kurven, Mengendiagramme, nachgebaute
+   Oberflächen) als [`schaubild`](#schaubild--gestaltetes-schaubild-handzeichnung-excalidraw)-Block
+   – beide mit Pflicht-`beschreibung`.
 6. Jeden Quizblock und jede Quizfrage mit eindeutiger `id` versehen und
    Fragen mit `explanation` ergänzen.
 7. Zum Schluss `npm run validate` laufen lassen (oder das Modul gegen

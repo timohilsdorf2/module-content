@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
+  loeseSzeneFuerMessung,
   FASSUNG_MUSTER,
   MODULES_DIR,
   REPO_ROOT,
@@ -35,6 +36,10 @@ import {
 } from "./kern";
 import { uebersetzungsSperren } from "./felder";
 import { vergleicheStruktur, vergleichePunkte } from "./struktur";
+import {
+  schaubildSzeneSchema,
+  schaubildUeberlaufHinweise,
+} from "../schema/schema";
 import { findHtmlTags, findMarkdownImages } from "./text-pruefung";
 import type { LearningModule } from "../schema/schema";
 
@@ -211,6 +216,35 @@ export function pruefeFassungen(
     errors.push(
       ...vergleichePunkte(masterMod, fassung).map((f) => `${dateiName}: ${f}`),
     );
+
+    // Schaubild-Überläufe (HINWEISE, nicht blockierend): feste
+    // Excalidraw-Layouts vertragen längere Übersetzungen nur begrenzt
+    // – gemeldet wird, wo Kästen wachsen oder Elemente neu kollidieren
+    // (Wrap-Nachbau aus der SYNC-Region, zeichengenau verifiziert).
+    {
+      const masterBloecke = (masterRaw as Record<string, unknown>).blocks as
+        | Record<string, unknown>[]
+        | undefined;
+      const fassungsBloecke = (ohneMeta as Record<string, unknown>).blocks as
+        | Record<string, unknown>[]
+        | undefined;
+      masterBloecke?.forEach((block, i) => {
+        if (block.type !== "schaubild") return;
+        const mSzene = schaubildSzeneSchema.safeParse(block.szene);
+        const fSzene = schaubildSzeneSchema.safeParse(fassungsBloecke?.[i]?.szene);
+        if (!mSzene.success || !fSzene.success) return; // Schema meldet
+        // Modul-Verweise VOR der Messung auflösen (geteilte Helfer in
+        // kern.ts, wie uebersetze.ts): Gemessen wird der aufgelöste
+        // Titel, nie die kurze Syntax (Review-Fund 22.9.2026 – die CI
+        // übersah sonst Überläufe, die die Anzeige hat).
+        for (const hinweis of schaubildUeberlaufHinweise(
+          loeseSzeneFuerMessung(mSzene.data, masterSprache, masterSprache),
+          loeseSzeneFuerMessung(fSzene.data, lang, lang),
+        )) {
+          hints.push(`${dateiName}: blocks[${i}] (schaubild): ${hinweis}`);
+        }
+      });
+    }
 
     // Übersetzte Texte: kein Roh-HTML, keine neuen Bild-URLs.
     let htmlGemeldet = 0;

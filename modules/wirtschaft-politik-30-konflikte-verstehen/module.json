@@ -80,7 +80,7 @@
   {
    "type": "text",
    "title": "Verstehen statt nur erschrecken",
-   "body": "Kriege und Krisen sind ständig in den Nachrichten – und oft bleibt dabei vor allem ein Gefühl zurück: Ohnmacht. Dieses Modul setzt dagegen ein Werkzeug: ein **Analyseraster**, mit dem du jeden zwischenstaatlichen Konflikt ordnen kannst. Es besteht aus drei Fragen:\n\n1. **Ursachen:** Worum geht es eigentlich?\n2. **Akteure:** Wer ist beteiligt – und wer könnte vermitteln?\n3. **Eskalationsstufe:** Wie weit ist der Konflikt fortgeschritten?\n\nZwei Klarstellungen vorweg. Erstens: **Konflikte an sich sind normal.** Aus Modul 19 weißt du, dass Politik genau dafür da ist – unterschiedliche Interessen sichtbar zu machen und verbindlich auszuhandeln. Auch zwischen Staaten sind Interessengegensätze Alltag: um Handelsregeln, Fischgründe, Grenzverläufe. Gefährlich wird ein Konflikt erst, wenn eine Seite ihn mit **Gewalt** lösen will.\n\nZweitens: **Analysieren heißt nicht gutheißen.** Wer die Ursachen eines Krieges untersucht, sucht Erklärungen – keine Entschuldigungen. Das Raster hilft dir, in der Flut der Meldungen den Überblick zu behalten: Es macht aus «irgendwo ist wieder Krieg» eine Reihe beantwortbarer Fragen. Genau das unterscheidet politische Bildung von bloßem Mitfiebern – und es ist die Voraussetzung für die Frage, die im nächsten Modul kommt: Was kann Frieden sichern?"
+   "body": "Kriege und Krisen sind ständig in den Nachrichten – und oft bleibt dabei vor allem ein Gefühl zurück: Ohnmacht. Dieses Modul setzt dagegen ein Werkzeug: ein **Analyseraster**, mit dem du jeden zwischenstaatlichen Konflikt ordnen kannst. Es besteht aus drei Fragen:\n\n1. **Ursachen:** Worum geht es eigentlich?\n2. **Akteure:** Wer ist beteiligt – und wer könnte vermitteln?\n3. **Eskalationsstufe:** Wie weit ist der Konflikt fortgeschritten?\n\nZwei Klarstellungen vorweg. Erstens: **Konflikte an sich sind normal.** Aus [[modul:wirtschaft-politik-19-was-ist-politik]] weißt du, dass Politik genau dafür da ist – unterschiedliche Interessen sichtbar zu machen und verbindlich auszuhandeln. Auch zwischen Staaten sind Interessengegensätze Alltag: um Handelsregeln, Fischgründe, Grenzverläufe. Gefährlich wird ein Konflikt erst, wenn eine Seite ihn mit **Gewalt** lösen will.\n\nZweitens: **Analysieren heißt nicht gutheißen.** Wer die Ursachen eines Krieges untersucht, sucht Erklärungen – keine Entschuldigungen. Das Raster hilft dir, in der Flut der Meldungen den Überblick zu behalten: Es macht aus «irgendwo ist wieder Krieg» eine Reihe beantwortbarer Fragen. Genau das unterscheidet politische Bildung von bloßem Mitfiebern – und es ist die Voraussetzung für die Frage, die in [[modul:wirtschaft-politik-31-debatte-frieden-sichern]] kommt: Was kann Frieden sichern?"
   },
   {
    "type": "text",
@@ -88,11 +88,473 @@
    "body": "Hinter zwischenstaatlichen Konflikten stecken immer wieder dieselben Grundmuster – vier solltest du kennen:\n\n- **Territorium:** Zwei Staaten beanspruchen dasselbe Gebiet. Beispiel: Um die Region **Kaschmir** streiten Indien und Pakistan seit 1947 – beide beanspruchen das Gebiet, mehrfach kam es zum Krieg.\n- **Ressourcen:** Es geht um Wasser, Öl, Gas, Fischgründe oder wertvolle Rohstoffe. Beispiel: Über die Nutzung des **Nilwassers** streiten Ägypten und Äthiopien – ein riesiger Staudamm flussaufwärts verändert, wie viel Wasser flussabwärts ankommt.\n- **Ideologie oder Religion:** Weltanschauungen stehen gegeneinander. Beispiel: Im **Kalten Krieg** (etwa 1947–1991) standen sich zwei Lager mit unvereinbaren Gesellschaftsmodellen gegenüber – Marktwirtschaft und westliche Demokratie auf der einen, kommunistische Einparteiensysteme auf der anderen Seite.\n- **Macht und Einfluss:** Ein Staat will seine Vormachtstellung sichern oder ausbauen – etwa, indem er Nachbarländer in seiner **Einflusszone** halten will: Sie sollen sich wirtschaftlich und militärisch nach ihm richten, nicht nach anderen.\n\nDas Wichtigste an dieser Liste: **Die Ursachen treten selten allein auf.** Die meisten Konflikte haben mehrere Wurzeln zugleich – um ein Gebiet geht es *und* um Rohstoffe darunter *und* um Macht. Wer nur eine Ursache sieht, versteht den Konflikt meist nicht. Frag deshalb bei jedem Konflikt: Welche dieser vier Muster erkenne ich – und welches wiegt am schwersten?"
   },
   {
-   "type": "image",
+   "type": "schaubild",
    "title": "Von der Spannung zum Krieg – und zurück",
-   "src": "/content/wirtschaft-politik-30-konflikte-verstehen/eskalationstreppe.png",
-   "alt": "Stufenschema einer Treppe mit vier aufsteigenden Stufen, ohne Bezug auf einen konkreten Konflikt. Stufe 1, blau: Spannung – Interessen prallen aufeinander, scharfe Worte, aber man redet noch miteinander. Stufe 2, graublau: Krise – Drohungen, Truppen an der Grenze, Gespräche brechen ab, einzelne Zwischenfälle. Stufe 3, orange: Bewaffneter Konflikt – wiederkehrende Kampfhandlungen, örtlich und zeitlich begrenzt. Stufe 4, dunkelblau: Krieg – großflächige, andauernde Kampfhandlungen zwischen Streitkräften. Ein gestrichelter grüner Pfeil führt von oben zurück zur ersten Stufe, beschriftet mit: Deeskalation – Umkehr ist auf jeder Stufe möglich, je höher die Stufe, desto schwerer wird sie. Unter der Treppe zeigt ein Pfeil nach rechts mit der Beschriftung: Eskalation – die Gewalt nimmt von Stufe zu Stufe zu. Ganz unten die Merkzeile: Die Übergänge sind fließend – und keine Stufe muss zwangsläufig zur nächsten führen.",
-   "caption": "Die Eskalationstreppe als neutrales Analysewerkzeug: vier Stufen aufwärts – und ein grüner Rückweg, der auf jeder Stufe offensteht.",
+   "szene": {
+    "elemente": [
+     {
+      "id": "step-1",
+      "x": 40,
+      "y": 840,
+      "width": 1190,
+      "height": 130,
+      "angle": 0,
+      "strokeColor": "#9db8d2",
+      "backgroundColor": "#e8f0f8",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1893764205,
+      "type": "rectangle"
+     },
+     {
+      "id": "step-2",
+      "x": 337,
+      "y": 650,
+      "width": 893,
+      "height": 190,
+      "angle": 0,
+      "strokeColor": "#9db8d2",
+      "backgroundColor": "#e8f0f8",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1955495139,
+      "type": "rectangle"
+     },
+     {
+      "id": "step-3",
+      "x": 634,
+      "y": 460,
+      "width": 596,
+      "height": 190,
+      "angle": 0,
+      "strokeColor": "#9db8d2",
+      "backgroundColor": "#e8f0f8",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1062106829,
+      "type": "rectangle"
+     },
+     {
+      "id": "step-4",
+      "x": 931,
+      "y": 270,
+      "width": 299,
+      "height": 190,
+      "angle": 0,
+      "strokeColor": "#9db8d2",
+      "backgroundColor": "#e8f0f8",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 2081613955,
+      "type": "rectangle"
+     },
+     {
+      "id": "titel",
+      "x": 480,
+      "y": 0,
+      "width": 246.48,
+      "height": 35,
+      "angle": 0,
+      "strokeColor": "#1e3a5f",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 827331885,
+      "type": "text",
+      "text": "Die Eskalationstreppe",
+      "fontSize": 28,
+      "fontFamily": 6,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "untertitel",
+      "x": 390,
+      "y": 44,
+      "width": 429.22,
+      "height": 20,
+      "angle": 0,
+      "strokeColor": "#427294",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1531502627,
+      "type": "text",
+      "text": "ein Analysewerkzeug – ohne Bezug auf einen bestimmten Konflikt",
+      "fontSize": 16,
+      "fontFamily": 6,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "stufe-1",
+      "x": 40,
+      "y": 690,
+      "width": 500,
+      "height": 150,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "#d0ebff",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 38725517,
+      "type": "rectangle"
+     },
+     {
+      "id": "stufe-2",
+      "x": 337,
+      "y": 500,
+      "width": 500,
+      "height": 150,
+      "angle": 0,
+      "strokeColor": "#5f7d99",
+      "backgroundColor": "#d5dee8",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1008657347,
+      "type": "rectangle"
+     },
+     {
+      "id": "stufe-3",
+      "x": 634,
+      "y": 310,
+      "width": 500,
+      "height": 150,
+      "angle": 0,
+      "strokeColor": "#d9480f",
+      "backgroundColor": "#ffd8a8",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1149529581,
+      "type": "rectangle"
+     },
+     {
+      "id": "stufe-4",
+      "x": 730,
+      "y": 120,
+      "width": 500,
+      "height": 150,
+      "angle": 0,
+      "strokeColor": "#1a3c5e",
+      "backgroundColor": "#a5c8e8",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 112423779,
+      "type": "rectangle"
+     },
+     {
+      "id": "deeskalation-pfeil",
+      "x": 959.5,
+      "y": 100.5,
+      "width": 834,
+      "height": 542.5,
+      "angle": 0,
+      "strokeColor": "#2f9e44",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 117057613,
+      "type": "arrow",
+      "points": [
+       [
+        0,
+        0
+       ],
+       [
+        -189.5,
+        -18.5
+       ],
+       [
+        -389.5,
+        -5.5
+       ],
+       [
+        -569.5,
+        69.5
+       ],
+       [
+        -719.5,
+        209.5
+       ],
+       [
+        -804.5,
+        379.5
+       ],
+       [
+        -834,
+        524
+       ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false
+     },
+     {
+      "id": "deeskalation-text",
+      "x": 230,
+      "y": 340,
+      "width": 330.13,
+      "height": 40,
+      "angle": 0,
+      "strokeColor": "#267936",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 458559235,
+      "type": "text",
+      "text": "Deeskalation: Umkehr ist auf jeder Stufe möglich –\nje höher die Stufe, desto schwerer wird sie",
+      "fontSize": 16,
+      "fontFamily": 6,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "eskalation-pfeil",
+      "x": 70.5,
+      "y": 1010,
+      "width": 1079,
+      "height": 0,
+      "angle": 0,
+      "strokeColor": "#39627f",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 998872749,
+      "type": "arrow",
+      "points": [
+       [
+        0,
+        0
+       ],
+       [
+        1079,
+        0
+       ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false
+     },
+     {
+      "id": "eskalation-text",
+      "x": 430,
+      "y": 1050,
+      "width": 336.82,
+      "height": 20,
+      "angle": 0,
+      "strokeColor": "#39627f",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1283602083,
+      "type": "text",
+      "text": "Eskalation: Die Gewalt nimmt von Stufe zu Stufe zu",
+      "fontSize": 16,
+      "fontFamily": 6,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "merksatz",
+      "x": 200,
+      "y": 1100,
+      "width": 634.04,
+      "height": 22.5,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 1557936397,
+      "type": "text",
+      "text": "Die Übergänge sind fließend – und keine Stufe muss zwangsläufig zur nächsten führen.",
+      "fontSize": 18,
+      "fontFamily": 6,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "xOX6NqHt5gFtvbUYvLwEU",
+      "x": 179.66,
+      "y": 720,
+      "width": 220.68,
+      "height": 90,
+      "angle": 0,
+      "strokeColor": "#1664ac",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 511220749,
+      "type": "text",
+      "text": "1 · Spannung\nInteressen prallen aufeinander,\nscharfe Worte – aber man\nredet noch miteinander",
+      "fontSize": 18,
+      "fontFamily": 6,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "stufe-1",
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "fK-fHIUFKs6Nw5HAwv7Ku",
+      "x": 474.82,
+      "y": 530,
+      "width": 224.37,
+      "height": 90,
+      "angle": 0,
+      "strokeColor": "#4a6278",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 176394861,
+      "type": "text",
+      "text": "2 · Krise\nDrohungen, Truppen an der\nGrenze, Gespräche brechen ab,\neinzelne Zwischenfälle",
+      "fontSize": 18,
+      "fontFamily": 6,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "stufe-2",
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "s31umpm9j9F3ewbBDeIFO",
+      "x": 755.05,
+      "y": 351.25,
+      "width": 257.9,
+      "height": 67.5,
+      "angle": 0,
+      "strokeColor": "#a7370c",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 2057354445,
+      "type": "text",
+      "text": "3 · Bewaffneter Konflikt\nwiederkehrende Kampfhandlungen,\nörtlich und zeitlich begrenzt",
+      "fontSize": 18,
+      "fontFamily": 6,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "stufe-3",
+      "autoResize": true,
+      "lineHeight": 1.25
+     },
+     {
+      "id": "ciBO2kpNnQvHFOX9CTYfx",
+      "x": 886.53,
+      "y": 150,
+      "width": 186.93,
+      "height": 90,
+      "angle": 0,
+      "strokeColor": "#1a3c5e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "roundness": null,
+      "seed": 376019757,
+      "type": "text",
+      "text": "4 · Krieg\ngroßflächige, andauernde\nKampfhandlungen\nzwischen Streitkräften",
+      "fontSize": 18,
+      "fontFamily": 6,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "stufe-4",
+      "autoResize": true,
+      "lineHeight": 1.25
+     }
+    ]
+   },
+   "beschreibung": "Die Eskalationstreppe ist ein neutrales Analysewerkzeug ohne Bezug auf einen bestimmten Konflikt: Sie ordnet zwischenstaatliche Konflikte auf vier aufsteigenden Stufen ein, entlang derer die Gewalt von Stufe zu Stufe zunimmt (Eskalation). Ein gestrichelter grüner Rückpfeil führt von der obersten Stufe zurück zum Anfang und zeigt, dass Deeskalation – also Umkehr – auf jeder Stufe möglich ist, aber mit jeder höheren Stufe schwerer wird. Die Übergänge sind fließend, und keine Stufe muss zwangsläufig zur nächsten führen. Kernaussagen: 1. Spannung – Interessen prallen aufeinander, scharfe Worte, aber man redet noch miteinander. 2. Krise – Drohungen, Truppen an der Grenze, Gespräche brechen ab, einzelne Zwischenfälle. 3. Bewaffneter Konflikt – wiederkehrende Kampfhandlungen, örtlich und zeitlich begrenzt. 4. Krieg – großflächige, andauernde Kampfhandlungen zwischen Streitkräften. Eskalation: Die Gewalt nimmt von Stufe zu Stufe zu. Deeskalation: Umkehr ist auf jeder Stufe möglich – je höher die Stufe, desto schwerer wird sie.",
    "credit": "Eigene Darstellung, EveryCate, CC BY-SA 4.0"
   },
   {
@@ -103,7 +565,7 @@
   {
    "type": "text",
    "title": "Wer mitspielt: die Akteure",
-   "body": "Zweite Rasterfrage: **Wer ist beteiligt?** Vier Typen von Akteuren begegnen dir immer wieder:\n\n- **Staaten:** Die Hauptakteure. Ihre Regierungen entscheiden über Verhandlung, Drohung, Rückzug – und im schlimmsten Fall über Krieg.\n- **Bündnisse:** Staaten schließen sich zusammen, um gemeinsam stärker zu sein. Das wichtigste Beispiel ist die **NATO**, das Verteidigungsbündnis von über 30 Staaten Europas und Nordamerikas, gegründet 1949. Ihr Kern ist die Beistandszusage: Ein Angriff auf ein Mitglied gilt als Angriff auf alle – das soll einen Angriff von vornherein unattraktiv machen (Abschreckung).\n- **Der UNO-Sicherheitsrat:** Aus Modul 29 kennst du ihn als das einzige Gremium, das **bindende** Beschlüsse fassen kann – von Sanktionen bis zu Friedensmissionen. Und du kennst seine eingebaute Schwäche: Ist eine **Vetomacht** selbst beteiligt oder schützt sie eine Konfliktpartei, ist der Rat **blockiert**.\n- **Die OSZE** (Organisation für Sicherheit und Zusammenarbeit in Europa): 57 Teilnehmerstaaten von Nordamerika über ganz Europa – auch Liechtenstein – bis Zentralasien. Sie hat keine Truppen; ihre Werkzeuge sind **Vermittlung und Beobachtung**: Sie bringt Konfliktparteien an einen Tisch und schickt Beobachterinnen und Beobachter, die neutral dokumentieren, was vor Ort geschieht – die «Augen und Ohren» der Staatengemeinschaft.\n\nMerk dir die Arbeitsteilung grob so: Staaten führen die Konflikte, Bündnisse sollen Angriffe abschrecken, der Sicherheitsrat könnte bindend eingreifen (wenn ihn kein Veto blockiert), und die OSZE hilft beim Reden und Hinschauen. Mit diesem Personal im Kopf kannst du nun das ganze Raster anwenden."
+   "body": "Zweite Rasterfrage: **Wer ist beteiligt?** Vier Typen von Akteuren begegnen dir immer wieder:\n\n- **Staaten:** Die Hauptakteure. Ihre Regierungen entscheiden über Verhandlung, Drohung, Rückzug – und im schlimmsten Fall über Krieg.\n- **Bündnisse:** Staaten schließen sich zusammen, um gemeinsam stärker zu sein. Das wichtigste Beispiel ist die **NATO**, das Verteidigungsbündnis von über 30 Staaten Europas und Nordamerikas, gegründet 1949. Ihr Kern ist die Beistandszusage: Ein Angriff auf ein Mitglied gilt als Angriff auf alle – das soll einen Angriff von vornherein unattraktiv machen (Abschreckung).\n- **Der UNO-Sicherheitsrat:** Aus [[modul:wirtschaft-politik-29-uno-menschenrechte]] kennst du ihn als das einzige Gremium, das **bindende** Beschlüsse fassen kann – von Sanktionen bis zu Friedensmissionen. Und du kennst seine eingebaute Schwäche: Ist eine **Vetomacht** selbst beteiligt oder schützt sie eine Konfliktpartei, ist der Rat **blockiert**.\n- **Die OSZE** (Organisation für Sicherheit und Zusammenarbeit in Europa): 57 Teilnehmerstaaten von Nordamerika über ganz Europa – auch Liechtenstein – bis Zentralasien. Sie hat keine Truppen; ihre Werkzeuge sind **Vermittlung und Beobachtung**: Sie bringt Konfliktparteien an einen Tisch und schickt Beobachterinnen und Beobachter, die neutral dokumentieren, was vor Ort geschieht – die «Augen und Ohren» der Staatengemeinschaft.\n\nMerk dir die Arbeitsteilung grob so: Staaten führen die Konflikte, Bündnisse sollen Angriffe abschrecken, der Sicherheitsrat könnte bindend eingreifen (wenn ihn kein Veto blockiert), und die OSZE hilft beim Reden und Hinschauen. Mit diesem Personal im Kopf kannst du nun das ganze Raster anwenden."
   },
   {
    "type": "video",
@@ -117,7 +579,7 @@
   {
    "type": "text",
    "title": "Das Raster angewendet: Russlands Krieg gegen die Ukraine",
-   "body": "Jetzt der Ernstfall für dein Analyseraster – der Krieg in Europa, den du aus den Nachrichten kennst. Wir analysieren ihn **sachlich und mit dokumentierten Fakten**; das Leid, das dieser Krieg über Menschen bringt, lässt sich in keinem Raster abbilden und wird hier bewusst nicht ausgemalt.\n\n**Was ist geschehen?** 2014 besetzte und annektierte Russland die ukrainische Halbinsel **Krim**; im Osten der Ukraine begann ein bewaffneter Konflikt, in dem von Russland unterstützte Kräfte gegen die ukrainische Armee kämpften. Am **24. Februar 2022** griff Russland die Ukraine dann mit seinen Streitkräften großflächig an. Dieser Angriff verstößt gegen das **Gewaltverbot der UNO-Charta** – das Fundament des Völkerrechts, das Angriffskriege verbietet. Das ist keine Meinungsfrage, sondern dokumentierter Faktenstand: Die **UNO-Generalversammlung** verurteilte den Angriff im März 2022 mit großer Mehrheit – **141 von 193 Staaten** – als völkerrechtswidrig und forderte den Rückzug.\n\n**Ursachen?** Mehrere Muster wirken zusammen – genau wie im Modul beschrieben: **Macht und Einfluss** (die russische Führung will die Ukraine in ihrer Einflusszone halten, während sich die Ukraine der EU und westlichen Partnern zuwendet), **Territorium** (die Krim seit 2014; 2022 erklärte Russland weitere ukrainische Gebiete zu seinem Staatsgebiet – völkerrechtlich nicht anerkannt) und **Ideologie** (die russische Führung stellte in Reden und Texten wiederholt in Frage, dass die Ukraine eine eigenständige Nation sei).\n\n**Akteure?** **Russland** als Angreifer, die **Ukraine**, die sich verteidigt. Der **UNO-Sicherheitsrat** ist blockiert – Russland ist Vetomacht und stoppte bereits im Februar 2022 eine Resolution: die Mechanik aus Modul 29 im Ernstfall. Die **Generalversammlung** konnte verurteilen, aber nicht zwingen – ihre Beschlüsse sind Empfehlungen. Die **NATO** ist nicht Kriegspartei, denn die Ukraine ist kein Mitglied; viele NATO-Staaten unterstützen die Ukraine aber mit Waffen, Geld und Ausbildung. Die **OSZE** hatte seit 2014 eine Beobachtermission in der Ostukraine – sie musste 2022 beendet werden, weil Russlands Zustimmung zur Verlängerung fehlte.\n\n**Eskalationsstufe?** Der Verlauf folgt der Treppe: jahrelange **Spannung** um die Ausrichtung der Ukraine – **Krise** 2013/14 mit Protesten, Machtwechsel in Kiew und russischer Reaktion – **bewaffneter Konflikt** 2014 bis 2021 auf der Krim und in der Ostukraine – **Krieg** seit dem 24. Februar 2022.\n\nÜber den weiteren Verlauf oder den Ausgang sagt dir dieses Modul bewusst nichts: Das wäre Spekulation, und Karten mit Frontverläufen veralten schneller, als ein Lernmodul aktualisiert werden kann. Was bleibt, ist das Raster: Ursachen, Akteure, Eskalationslogik – damit kannst du auch die nächste Nachrichtenmeldung einordnen. Und im nächsten Modul stellst du die Anschlussfrage: **Welche Werkzeuge hat die Welt, um Frieden zu sichern?**"
+   "body": "Jetzt der Ernstfall für dein Analyseraster – der Krieg in Europa, den du aus den Nachrichten kennst. Wir analysieren ihn **sachlich und mit dokumentierten Fakten**; das Leid, das dieser Krieg über Menschen bringt, lässt sich in keinem Raster abbilden und wird hier bewusst nicht ausgemalt.\n\n**Was ist geschehen?** 2014 besetzte und annektierte Russland die ukrainische Halbinsel **Krim**; im Osten der Ukraine begann ein bewaffneter Konflikt, in dem von Russland unterstützte Kräfte gegen die ukrainische Armee kämpften. Am **24. Februar 2022** griff Russland die Ukraine dann mit seinen Streitkräften großflächig an. Dieser Angriff verstößt gegen das **Gewaltverbot der UNO-Charta** – das Fundament des Völkerrechts, das Angriffskriege verbietet. Das ist keine Meinungsfrage, sondern dokumentierter Faktenstand: Die **UNO-Generalversammlung** verurteilte den Angriff im März 2022 mit großer Mehrheit – **141 von 193 Staaten** – als völkerrechtswidrig und forderte den Rückzug.\n\n**Ursachen?** Mehrere Muster wirken zusammen – genau wie im Modul beschrieben: **Macht und Einfluss** (die russische Führung will die Ukraine in ihrer Einflusszone halten, während sich die Ukraine der EU und westlichen Partnern zuwendet), **Territorium** (die Krim seit 2014; 2022 erklärte Russland weitere ukrainische Gebiete zu seinem Staatsgebiet – völkerrechtlich nicht anerkannt) und **Ideologie** (die russische Führung stellte in Reden und Texten wiederholt in Frage, dass die Ukraine eine eigenständige Nation sei).\n\n**Akteure?** **Russland** als Angreifer, die **Ukraine**, die sich verteidigt. Der **UNO-Sicherheitsrat** ist blockiert – Russland ist Vetomacht und stoppte bereits im Februar 2022 eine Resolution: die Mechanik aus [[modul:wirtschaft-politik-29-uno-menschenrechte]] im Ernstfall. Die **Generalversammlung** konnte verurteilen, aber nicht zwingen – ihre Beschlüsse sind Empfehlungen. Die **NATO** ist nicht Kriegspartei, denn die Ukraine ist kein Mitglied; viele NATO-Staaten unterstützen die Ukraine aber mit Waffen, Geld und Ausbildung. Die **OSZE** hatte seit 2014 eine Beobachtermission in der Ostukraine – sie musste 2022 beendet werden, weil Russlands Zustimmung zur Verlängerung fehlte.\n\n**Eskalationsstufe?** Der Verlauf folgt der Treppe: jahrelange **Spannung** um die Ausrichtung der Ukraine – **Krise** 2013/14 mit Protesten, Machtwechsel in Kiew und russischer Reaktion – **bewaffneter Konflikt** 2014 bis 2021 auf der Krim und in der Ostukraine – **Krieg** seit dem 24. Februar 2022.\n\nÜber den weiteren Verlauf oder den Ausgang sagt dir dieses Modul bewusst nichts: Das wäre Spekulation, und Karten mit Frontverläufen veralten schneller, als ein Lernmodul aktualisiert werden kann. Was bleibt, ist das Raster: Ursachen, Akteure, Eskalationslogik – damit kannst du auch die nächste Nachrichtenmeldung einordnen. Und in [[modul:wirtschaft-politik-31-debatte-frieden-sichern]] stellst du die Anschlussfrage: **Welche Werkzeuge hat die Welt, um Frieden zu sichern?**"
   },
   {
    "type": "quiz",
@@ -211,7 +673,7 @@
        "text": "Ein Bündnis, das seine Mitglieder zu Angriffen auf andere Staaten verpflichtet."
       }
      ],
-     "explanation": "Die NATO ist das 1949 gegründete Verteidigungsbündnis von über 30 Staaten Europas und Nordamerikas. Ihr Kern ist die Beistandszusage: Wer ein Mitglied angreift, hat es mit allen zu tun – diese Abschreckung soll Angriffe verhindern, nicht auslösen; zu Angriffskriegen verpflichtet das Bündnis gerade nicht. Mit der UNO ist die NATO nicht zu verwechseln, und zollfreier Handel ist das Feld von Binnenmarkt und EWR aus Modul 28, nicht der NATO."
+     "explanation": "Die NATO ist das 1949 gegründete Verteidigungsbündnis von über 30 Staaten Europas und Nordamerikas. Ihr Kern ist die Beistandszusage: Wer ein Mitglied angreift, hat es mit allen zu tun – diese Abschreckung soll Angriffe verhindern, nicht auslösen; zu Angriffskriegen verpflichtet das Bündnis gerade nicht. Mit der UNO ist die NATO nicht zu verwechseln, und zollfreier Handel ist das Feld von Binnenmarkt und EWR aus [[modul:wirtschaft-politik-28-eu-ewr-binnenmarkt]], nicht der NATO."
     },
     {
      "id": "q5",
@@ -225,14 +687,14 @@
        "text": "Weil die Ukraine keine Behandlung im Sicherheitsrat wollte."
       },
       {
-       "text": "Weil Russland als ständiges Mitglied sein Veto einlegte – die Blockade-Mechanik aus Modul 29 im Ernstfall.",
+       "text": "Weil Russland als ständiges Mitglied sein Veto einlegte – die Blockade-Mechanik aus [[modul:wirtschaft-politik-29-uno-menschenrechte]] im Ernstfall.",
        "correct": true
       },
       {
        "text": "Weil die UNO den Angriff nie zum Thema gemacht hat."
       }
      ],
-     "explanation": "Russland ist eine der fünf Vetomächte – und stoppte im Februar 2022 mit seinem Veto eine Resolution des Sicherheitsrats zum eigenen Angriff. Genau das ist die eingebaute Schwäche aus Modul 29: Ist eine Vetomacht selbst Konfliktpartei, ist der Rat blockiert. Zuständig wäre er sehr wohl – Frieden und Sicherheit sind sein Kernauftrag –, und die UNO hat den Angriff ausführlich behandelt: Die Generalversammlung verurteilte ihn mit 141 Stimmen, konnte aber nur empfehlen."
+     "explanation": "Russland ist eine der fünf Vetomächte – und stoppte im Februar 2022 mit seinem Veto eine Resolution des Sicherheitsrats zum eigenen Angriff. Genau das ist die eingebaute Schwäche aus [[modul:wirtschaft-politik-29-uno-menschenrechte]]: Ist eine Vetomacht selbst Konfliktpartei, ist der Rat blockiert. Zuständig wäre er sehr wohl – Frieden und Sicherheit sind sein Kernauftrag –, und die UNO hat den Angriff ausführlich behandelt: Die Generalversammlung verurteilte ihn mit 141 Stimmen, konnte aber nur empfehlen."
     },
     {
      "id": "q6",
@@ -253,7 +715,7 @@
        "text": "Sie erklärte den Angriff für vereinbar mit der UNO-Charta."
       }
      ],
-     "explanation": "141 von 193 Staaten stimmten für die Resolution, die den Angriff als Verstoß gegen die UNO-Charta verurteilt und den Rückzug fordert – ein seltenes, deutliches Signal der Weltgemeinschaft. Aber Beschlüsse der Generalversammlung sind Empfehlungen: Sie zeigen die Weltmeinung, erzwingen können sie nichts (Modul 29). Eine eigene UNO-Armee gibt es nicht, ausgeschlossen wurde Russland nicht – und für vereinbar mit der Charta erklärte die Versammlung den Angriff ganz sicher nicht: Sie stellte das Gegenteil fest."
+     "explanation": "141 von 193 Staaten stimmten für die Resolution, die den Angriff als Verstoß gegen die UNO-Charta verurteilt und den Rückzug fordert – ein seltenes, deutliches Signal der Weltgemeinschaft. Aber Beschlüsse der Generalversammlung sind Empfehlungen: Sie zeigen die Weltmeinung, erzwingen können sie nichts ([[modul:wirtschaft-politik-29-uno-menschenrechte]]). Eine eigene UNO-Armee gibt es nicht, ausgeschlossen wurde Russland nicht – und für vereinbar mit der Charta erklärte die Versammlung den Angriff ganz sicher nicht: Sie stellte das Gegenteil fest."
     },
     {
      "id": "q7",
@@ -295,7 +757,7 @@
        "correct": true
       }
      ],
-     "explanation": "Die OSZE umfasst 57 Teilnehmerstaaten von Nordamerika über Europa – auch Liechtenstein – bis Zentralasien. Ihre Stärke sind weiche Werkzeuge: vermitteln, beobachten, dokumentieren – so wie ihre Beobachtermission, die von 2014 bis 2022 in der Ostukraine im Einsatz war. Truppen hat sie keine, ein Gericht ist sie nicht (internationale Gerichte lernst du in Modul 31 kennen), und mit den EU-Institutionen aus Modul 28 hat sie nichts zu tun."
+     "explanation": "Die OSZE umfasst 57 Teilnehmerstaaten von Nordamerika über Europa – auch Liechtenstein – bis Zentralasien. Ihre Stärke sind weiche Werkzeuge: vermitteln, beobachten, dokumentieren – so wie ihre Beobachtermission, die von 2014 bis 2022 in der Ostukraine im Einsatz war. Truppen hat sie keine, ein Gericht ist sie nicht (internationale Gerichte lernst du in [[modul:wirtschaft-politik-31-debatte-frieden-sichern]] kennen), und mit den EU-Institutionen aus [[modul:wirtschaft-politik-28-eu-ewr-binnenmarkt]] hat sie nichts zu tun."
     }
    ]
   },

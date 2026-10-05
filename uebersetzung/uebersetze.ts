@@ -30,7 +30,9 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
+  loeseSzeneFuerMessung,
   FASSUNG_MUSTER,
   MODULES_DIR,
   UEBERSETZUNG_DIR,
@@ -55,7 +57,18 @@ import {
 } from "./felder";
 import { vergleicheStruktur, vergleichePunkte } from "./struktur";
 import { findHtmlTags, findMarkdownImages } from "./text-pruefung";
-import { parseModulDatei, type LearningModule } from "../schema/schema";
+import {
+  DIAGRAMM_LABEL_MAX_ZEICHEN,
+  SCHAUBILD_TEXT_MAX_ZEICHEN,
+  schaubildSzeneSchema,
+  schaubildUeberlaufHinweise,
+  diagrammDefinitionFehler,
+  diagrammTyp,
+  ersetzeDiagrammLabels,
+  extrahiereDiagrammLabels,
+  parseModulDatei,
+  type LearningModule,
+} from "../schema/schema";
 import { describeIssues } from "./fehler";
 import { execFileSync } from "node:child_process";
 
@@ -133,6 +146,12 @@ interface PaketInhalt {
 }
 
 const LIMITS: ReadonlyArray<[RegExp, number]> = [
+  [/^blocks\[\]\.leitfragen\[\]$/, 300],
+  // An das Schema-Maximum gekoppelt (Review-Fund: ein hartes 500er-
+  // Limit machte schema-gültige Master mit 501-1000 Zeichen
+  // unübersetzbar); die eigentliche Platz-Wache sind die nicht
+  // blockierenden schaubildUeberlaufHinweise.
+  [/szene\.elemente\[\]\.text$/, SCHAUBILD_TEXT_MAX_ZEICHEN],
   [/\.beschriftung$/, 60],
   [/\.kategorien\[\]$/, 40],
   [/elemente\[\]\.text$/, 80],
@@ -146,7 +165,7 @@ const LIMITS: ReadonlyArray<[RegExp, number]> = [
   [/^einheit$/, 120],
 ];
 
-function extrahiere(masterRaw: unknown): {
+export function extrahiere(masterRaw: unknown): {
   segmente: Segment[];
   pakete: PaketQuelle[];
 } {
@@ -154,13 +173,45 @@ function extrahiere(masterRaw: unknown): {
   besucheStrings(masterRaw, [], (pfad, text) => {
     const norm = normalisierePfad(pfad);
     const klasse = klassifizierePfad(norm); // Vollständigkeits-Netz
+    if (klasse === "diagramm") {
+      // Mermaid-Definition: NUR die Beschriftungen als Einzelsegmente
+      // (extrahiereDiagrammLabels, SYNC-Region – dieselbe Stelle, die
+      // auch Maskierung/Rückschreiben speist). Virtueller Pfad
+      // [...pfad, i]: das Rückschreiben fängt ihn gruppiert ab
+      // (ersetzeDiagrammLabels), setzeWert sieht ihn nie.
+      const labels = extrahiereDiagrammLabels(text);
+      if (typeof labels === "string") {
+        throw new Error(`${pfadSchluessel(pfad)}: ${labels}`);
+      }
+      const typ = diagrammTyp(text);
+      labels.forEach((label, i) => {
+        segmente.push({
+          schluessel: pfadSchluessel([...pfad, i]),
+          pfad: [...pfad, i],
+          text: label.text,
+          kontext:
+            `${norm} (Diagramm-Beschriftung: KEINE Anführungszeichen` +
+            // title/section-Zeilen (ganzzeilig) dürfen ":" enthalten.
+            (typ === "timeline" && !label.ganzzeilig ? ", KEIN Doppelpunkt" : "") +
+            ")",
+          limit: DIAGRAMM_LABEL_MAX_ZEICHEN,
+        });
+      });
+      return;
+    }
     if (klasse !== "uebersetzt") return;
     const limit = LIMITS.find(([m]) => m.test(norm))?.[1];
     segmente.push({
       schluessel: pfadSchluessel(pfad),
       pfad: [...pfad],
       text,
-      kontext: norm,
+      // Schaubild-Beschriftungen haben feste Zeichenflächen: Der
+      // Prompt bittet um ähnliche Länge; echte Überläufe meldet
+      // schaubildUeberlaufHinweise nach dem Zusammensetzen.
+      kontext:
+        norm === "blocks[].szene.elemente[].text"
+          ? `${norm} (Schaubild-Beschriftung: Platz ist begrenzt, ähnliche Länge anstreben)`
+          : norm,
       limit,
     });
   });
@@ -369,6 +420,38 @@ function gitCommitKurz(): string {
   }
 }
 
+/** Schaubild-Überlauf-Hinweise Master↔Fassung auf die Konsole. */
+function gebeSchaubildHinweise(
+  masterRaw: Record<string, unknown>,
+  fassung: Record<string, unknown>,
+  zielSprache?: string,
+): void {
+  const masterBloecke = masterRaw.blocks as Record<string, unknown>[] | undefined;
+  const fassungsBloecke = fassung.blocks as Record<string, unknown>[] | undefined;
+  // Verweise wie der Player auflösen, BEVOR gemessen wird (geteilte
+  // Helfer in kern.ts – auch die Fassungs-CI misst so): Master-Seite
+  // in der Master-Sprache (inkl. Fassungs-Titel-Wahl des Players bei
+  // fremdsprachigen Mastern), Fassung in der Zielsprache.
+  const masterSprache =
+    typeof masterRaw.language === "string" ? masterRaw.language : "de";
+  masterBloecke?.forEach((block, i) => {
+    if (block.type !== "schaubild") return;
+    const mSzene = schaubildSzeneSchema.safeParse(block.szene);
+    const fSzene = schaubildSzeneSchema.safeParse(fassungsBloecke?.[i]?.szene);
+    if (!mSzene.success || !fSzene.success) return; // validate meldet
+    for (const hinweis of schaubildUeberlaufHinweise(
+      loeseSzeneFuerMessung(mSzene.data, masterSprache, masterSprache),
+      loeseSzeneFuerMessung(
+        fSzene.data,
+        zielSprache ?? masterSprache,
+        zielSprache,
+      ),
+    )) {
+      console.warn(`⚠ blocks[${i}] (schaubild): ${hinweis}`);
+    }
+  });
+}
+
 async function uebersetzeModul(slug: string, opt: Optionen): Promise<void> {
   const konfig = ladeKonfig();
   const modell = opt.modell ?? konfig.modell;
@@ -470,6 +553,14 @@ async function uebersetzeModul(slug: string, opt: Optionen): Promise<void> {
         bestehend.derivedFrom?.masterHash === sha256(masterBytes) &&
         (bestehend.derivedFrom?.hintsHash ?? null) === aktuellerHintsHash
       ) {
+        // Schaubild-Überlauf-Hinweise auch im Kurzschluss zeigen –
+        // sie sind der Arbeitsvorrat fürs Gegenlesen und verschwänden
+        // sonst nach dem ersten Lauf (Review-Fund).
+        gebeSchaubildHinweise(
+          masterRaw,
+          bestehend as unknown as Record<string, unknown>,
+          zielSprache,
+        );
         console.log("✓ Fassung ist aktuell – nichts zu tun.");
         return;
       }
@@ -547,10 +638,53 @@ async function uebersetzeModul(slug: string, opt: Optionen): Promise<void> {
     }
   }
 
-  // Fassung zusammensetzen.
+  // Fassung zusammensetzen. Diagramm-Beschriftungen tragen virtuelle
+  // Pfade [...definitionsPfad, labelIndex] und werden GRUPPIERT über
+  // ersetzeDiagrammLabels zurückgeschrieben (wirft laut bei
+  // Anführungszeichen/Zeilenumbruch bzw. timeline-Doppelpunkt in der
+  // Übersetzung); alle übrigen Segmente setzt setzeWert direkt.
   const inhalt = JSON.parse(masterBytes) as Record<string, unknown>;
+  const istDiagrammLabel = (s: Segment) =>
+    s.pfad.length >= 2 &&
+    typeof s.pfad[s.pfad.length - 1] === "number" &&
+    s.pfad[s.pfad.length - 2] === "definition";
   for (const s of segmente) {
+    if (istDiagrammLabel(s)) continue;
     setzeWert(inhalt, s.pfad, antworten.segmente[s.schluessel]);
+  }
+  const diagrammGruppen = new Map<string, Segment[]>();
+  for (const s of segmente) {
+    if (!istDiagrammLabel(s)) continue;
+    const defSchluessel = pfadSchluessel(s.pfad.slice(0, -1));
+    const gruppe = diagrammGruppen.get(defSchluessel) ?? [];
+    gruppe.push(s);
+    diagrammGruppen.set(defSchluessel, gruppe);
+  }
+  for (const [defSchluessel, gruppe] of diagrammGruppen) {
+    const defPfad = gruppe[0].pfad.slice(0, -1);
+    const original = holeWert(inhalt, defPfad);
+    if (typeof original !== "string") {
+      abbruch(`${defSchluessel}: Definition nicht gefunden.`);
+    }
+    // Extraktions-Reihenfolge = Dokumentfolge; die Gruppe entstand in
+    // derselben Reihenfolge, der Index-Sort ist der Sicherheitsgurt.
+    const texte = gruppe
+      .slice()
+      .sort((a, b) => (a.pfad.at(-1) as number) - (b.pfad.at(-1) as number))
+      .map((s) => antworten.segmente[s.schluessel]);
+    let neuDef: string;
+    try {
+      neuDef = ersetzeDiagrammLabels(original, texte);
+    } catch (e) {
+      abbruch(`${defSchluessel}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const defFehler = diagrammDefinitionFehler(neuDef);
+    if (defFehler) {
+      abbruch(
+        `${defSchluessel}: übersetzte Definition ungültig – ${defFehler} (Korrekturhinweis setzen und neu erzeugen).`,
+      );
+    }
+    setzeWert(inhalt, defPfad, neuDef);
   }
   for (const p of pakete) {
     const neu = antworten.pakete[p.schluessel];
@@ -610,6 +744,14 @@ async function uebersetzeModul(slug: string, opt: Optionen): Promise<void> {
       }
     }
   }
+
+  // Schaubild-Überlauf-HINWEISE (nicht blockierend): Excalidraw
+  // speichert feste Positionen/Grössen – längere Übersetzungen lassen
+  // Kästen wachsen oder überlappen Nachbarn. Die Schätzung nutzt den
+  // zeichengenau verifizierten Wrap-Nachbau aus der SYNC-Region;
+  // Befunde gehören ins Gegenlesen (Korrekturhinweis setzen), nicht
+  // in einen harten Abbruch.
+  gebeSchaubildHinweise(masterRaw, inhalt, zielSprache);
 
   // Metafelder + Prüfsummen.
   const heute = new Date().toISOString().slice(0, 10);
@@ -780,4 +922,11 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+// Nur als CLI ausführen – test-diagramm.ts importiert extrahiere() ohne
+// die Kommandozeilen-Seiteneffekte. Pfadbasiert und endungstolerant:
+// «tsx uebersetzung/uebersetze» (ohne .ts) lässt argv[1] endungslos –
+// ein blosser endsWith(".ts") machte den Aufruf zum stillen No-op
+// (Review-Fund).
+const argvPfad = path.resolve(process.argv[1] ?? "").replace(/\.m?[tj]s$/, "");
+const eigenerPfad = fileURLToPath(import.meta.url).replace(/\.m?[tj]s$/, "");
+if (argvPfad === eigenerPfad) void main();
